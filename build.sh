@@ -53,7 +53,7 @@ fi
 rm -rf "$ICONSET_DIR"
 
 echo "→ Signiere ($SIGN_IDENTITY)"
-codesign --force --options runtime --timestamp=none --sign "$SIGN_IDENTITY" "$APP"
+codesign --force --options runtime --timestamp=none --entitlements Resources/OneDriveOpener.entitlements --sign "$SIGN_IDENTITY" "$APP"
 
 echo "✓ Fertig: $APP"
 

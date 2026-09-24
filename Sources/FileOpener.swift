@@ -60,22 +60,64 @@ enum FileOpener {
         // Beim Kaltstart verwirft Office eine zu früh zugestellte URL: erst starten, dann übergeben.
         await ensureRunning(app)
         let uri = "\(app.scheme):ofe|u|\(webURL)"
-        Log.info("Öffne online: \(uri)")
+        let method = Settings.openMethod
+        Log.info("Öffne online (\(method.title)): \(method == .webURL ? webURL : uri)")
+        let ok: Bool
+        switch method {
+        case .officeURI: ok = openWithLaunchServices(uri)
+        case .appleEvent: ok = sendGetURL(uri, to: app)
+        case .webURL: ok = await openWebURL(webURL, with: app)
+        }
+        if ok {
+            AppState.recordOpen(file, online: true)
+        } else {
+            openLocally(file, app)
+        }
+    }
+
+    private static func openWithLaunchServices(_ uri: String) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         process.arguments = [uri]
         do {
             try process.run()
             process.waitUntilExit()
-            if process.terminationStatus == 0 {
-                AppState.recordOpen(file, online: true)
-                return
-            }
+            if process.terminationStatus == 0 { return true }
             Log.error("open beendet mit Status \(process.terminationStatus)")
         } catch {
             Log.error("open fehlgeschlagen: \(error.localizedDescription)")
         }
-        openLocally(file, app)
+        return false
+    }
+
+    /// Schickt die Adresse unverändert (ohne URL-Kodierung von „|“) als GetURL-Event an die Office-App.
+    private static func sendGetURL(_ uri: String, to app: OfficeApp) -> Bool {
+        let target = NSAppleEventDescriptor(bundleIdentifier: app.bundleID)
+        let event = NSAppleEventDescriptor(eventClass: AEEventClass(kInternetEventClass),
+                                           eventID: AEEventID(kAEGetURL),
+                                           targetDescriptor: target,
+                                           returnID: AEReturnID(kAutoGenerateReturnID),
+                                           transactionID: AETransactionID(kAnyTransactionID))
+        event.setParam(NSAppleEventDescriptor(string: uri), forKeyword: AEKeyword(keyDirectObject))
+        do {
+            _ = try event.sendEvent(options: [.noReply], timeout: 10)
+            return true
+        } catch {
+            Log.error("Apple Event an \(app.displayName) fehlgeschlagen: \(error.localizedDescription) – "
+                + "ggf. unter Systemeinstellungen → Datenschutz & Sicherheit → Automation erlauben")
+            return false
+        }
+    }
+
+    private static func openWebURL(_ webURL: String, with app: OfficeApp) async -> Bool {
+        guard let url = URL(string: webURL), let appURL = app.applicationURL else { return false }
+        do {
+            _ = try await NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+            return true
+        } catch {
+            Log.error("Web-Adresse an \(app.displayName) fehlgeschlagen: \(error.localizedDescription)")
+            return false
+        }
     }
 
     private static func runningInstance(_ app: OfficeApp) -> NSRunningApplication? {

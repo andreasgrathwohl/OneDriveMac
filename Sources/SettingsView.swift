@@ -34,6 +34,13 @@ final class SettingsModel: ObservableObject {
         }
     }
     @Published var waitSeconds: Int { didSet { Settings.syncWaitSeconds = waitSeconds } }
+    @Published var openMethod: OpenMethod {
+        didSet {
+            guard openMethod != Settings.openMethod else { return }
+            Settings.openMethod = openMethod
+            Log.info("Übergabe an Office: \(openMethod.title)")
+        }
+    }
     @Published var mappings: [ManualMapping] {
         didSet {
             Settings.manualMappings = mappings
@@ -65,6 +72,7 @@ final class SettingsModel: ObservableObject {
         launchAtLogin = LoginItem.isEnabled
         useGuessed = Settings.useGuessedMappings
         waitSeconds = Settings.syncWaitSeconds
+        openMethod = Settings.openMethod
         mappings = Settings.manualMappings
         observer = NotificationCenter.default.publisher(for: .appStateChanged)
             .sink { [weak self] _ in Task { @MainActor in self?.refreshState() } }
@@ -457,6 +465,18 @@ struct TroubleshootingTab: View {
                 Caption(model.message.isEmpty
                     ? "Bitte beim Melden eines Problems den Diagnosebericht mitschicken."
                     : model.message)
+            }
+
+            Section {
+                Picker("Übergabe an Office", selection: $model.openMethod) {
+                    ForEach(OpenMethod.allCases, id: \.self) { method in
+                        Text(method.title).tag(method)
+                    }
+                }
+            } header: {
+                Text("Öffnen mit AutoSpeichern")
+            } footer: {
+                Caption("Startet Office, aber das Dokument öffnet sich nicht, eine andere Übergabe ausprobieren. Beim Apple Event fragt macOS einmalig, ob OneDrive Opener Word, Excel und PowerPoint steuern darf.")
             }
 
             Section {

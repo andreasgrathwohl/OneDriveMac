@@ -22,6 +22,8 @@
 	<string>__BUILD__</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>OneDrive Opener übergibt Word, Excel und PowerPoint die Online-Adresse des Dokuments, damit AutoSpeichern funktioniert.</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSPrincipalClass</key>

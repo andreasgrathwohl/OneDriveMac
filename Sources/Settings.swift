@@ -19,6 +19,23 @@ struct ManualMapping: Identifiable, Hashable {
     var dictionary: [String: String] { ["localPath": localPath, "webURL": webURL] }
 }
 
+enum OpenMethod: String, CaseIterable {
+    /// `ms-word:ofe|u|<URL>` über Launch Services (`/usr/bin/open`).
+    case officeURI
+    /// Dieselbe Office-Adresse unverändert als Apple Event („GetURL“) direkt an die Office-App.
+    case appleEvent
+    /// Nur die https-Adresse, ausdrücklich an die Office-App übergeben.
+    case webURL
+
+    var title: String {
+        switch self {
+        case .officeURI: return "Office-Adresse (Standard)"
+        case .appleEvent: return "Office-Adresse als Apple Event"
+        case .webURL: return "Web-Adresse direkt an Office"
+        }
+    }
+}
+
 /// Einstellungen liegen in UserDefaults und können daher auch per MDM-Profil
 /// (Domain = Bundle-ID) vorgegeben werden.
 enum Settings {
@@ -32,6 +49,12 @@ enum Settings {
     static var syncWaitSeconds: Int {
         get { defaults.object(forKey: "SyncWaitSeconds") as? Int ?? 15 }
         set { defaults.set(newValue, forKey: "SyncWaitSeconds") }
+    }
+
+    /// Wie die Online-Adresse an Office übergeben wird (siehe `OpenMethod`).
+    static var openMethod: OpenMethod {
+        get { OpenMethod(rawValue: defaults.string(forKey: "OpenMethod") ?? "") ?? .officeURI }
+        set { defaults.set(newValue.rawValue, forKey: "OpenMethod") }
     }
 
     /// Auch geschätzte Zuordnungen online öffnen (Risiko: falsche Web-Adresse). Standard: aus.
