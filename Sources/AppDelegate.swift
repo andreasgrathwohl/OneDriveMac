@@ -16,8 +16,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             diagnostics: { [weak self] in self?.model.copyDiagnostics() }))
         Log.info("Gestartet: \(Bundle.main.bundlePath)")
 
-        LoginItem.enableOnFirstLaunch()
         HandlerGuard.shared.start()
+        // Das Neu-Signieren beim Übernehmen der Office-Symbole setzt Berechtigungen zurück –
+        // deshalb vor dem Anmelden als Startobjekt erledigen.
+        Task {
+            await Task.detached(priority: .utility) { OfficeIcons.install() }.value
+            LoginItem.enableOnFirstLaunch()
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self, !self.receivedFiles, !Settings.didShowOnboarding else { return }

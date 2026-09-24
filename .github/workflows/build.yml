@@ -1,10 +1,9 @@
 name: Build
 
+# macOS-Runner sind teuer: nur für Releases (Tag v*) oder manuell (Actions → Build → Run workflow).
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 permissions:

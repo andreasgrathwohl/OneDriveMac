@@ -35,6 +35,8 @@
 		<dict>
 			<key>CFBundleTypeName</key>
 			<string>Word-Dokument</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-docx</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -42,12 +44,27 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.openxmlformats.wordprocessingml.document</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Word-Dokument mit Makros</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-docm</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
 				<string>org.openxmlformats.wordprocessingml.document.macroenabled</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
 			<string>Excel-Arbeitsmappe</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-xlsx</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -55,13 +72,41 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.openxmlformats.spreadsheetml.sheet</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Excel-Arbeitsmappe mit Makros</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-xlsm</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
 				<string>org.openxmlformats.spreadsheetml.sheet.macroenabled</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Excel-Binärarbeitsmappe</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-xlsb</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
 				<string>com.microsoft.excel.sheet.binary.macroenabled</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
 			<string>PowerPoint-Präsentation</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-pptx</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -69,6 +114,19 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.openxmlformats.presentationml.presentation</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>PowerPoint-Präsentation mit Makros</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>Doc-pptm</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
 				<string>org.openxmlformats.presentationml.presentation.macroenabled</string>
 			</array>
 		</dict>
