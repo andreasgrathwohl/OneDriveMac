@@ -17,18 +17,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.info("Gestartet: \(Bundle.main.bundlePath)")
 
         HandlerGuard.shared.start()
+        WordIntegration.shared.start()
+        Updater.shared.start()
         // Das Neu-Signieren beim Übernehmen der Office-Symbole setzt Berechtigungen zurück –
         // deshalb vor dem Anmelden als Startobjekt erledigen.
         Task {
             await Task.detached(priority: .utility) { OfficeIcons.install() }.value
             LoginItem.enableOnFirstLaunch()
+            await setUpOnFirstLaunch()
         }
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            guard let self, !self.receivedFiles, !Settings.didShowOnboarding else { return }
-            Settings.didShowOnboarding = true
-            self.showSettings()
-        }
+    /// Beim ersten Start aus /Applications ohne Rückfrage als Standard-App einrichten –
+    /// Anwender sollen möglichst nichts tun müssen.
+    private func setUpOnFirstLaunch() async {
+        guard !Settings.didShowOnboarding, Bundle.main.bundlePath.hasPrefix("/Applications/") else { return }
+        Settings.didShowOnboarding = true
+        Log.info("Erster Start – richte OneDrive Opener als Standard-App für Office-Dateien ein")
+        await UserStatus.performAction(.openWithOnly)
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

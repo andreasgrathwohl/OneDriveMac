@@ -59,8 +59,9 @@ Repository: https://github.com/andreasgrathwohl/OneDriveMac (öffentlich, keine 
    ```
 
    Alternativ: App doppelklicken, Meldung schließen, dann **Systemeinstellungen →
-   Datenschutz & Sicherheit → „Trotzdem öffnen“**.
-4. Weiter mit Schritt 4 (Einrichtung) unten.
+   Datenschutz & Sicherheit → „Trotzdem öffnen”**.
+4. Die App richtet sich beim ersten Start automatisch ein (Standard-App, Autostart) – es sind keine
+   weiteren Schritte nötig. macOS kann dabei einmalig Bestätigungen verlangen – erlauben.
 
 Die ZIP-Dateien werden automatisch von GitHub Actions auf macOS gebaut
 (`.github/workflows/build.yml`).
@@ -104,11 +105,9 @@ erscheint oben rechts in der Menüleiste.
 
 ### Schritt 4: Einrichtung
 
-Auf das neue Menüleisten-Symbol klicken → **„Für Doppelklick aktivieren”** (oder in den
-**Einstellungen … → Allgemein → Aktivieren**). Das macht OneDrive Opener zur Standard-App
-für Doppelklick bei Word-/Excel-/PowerPoint-Dateien und schaltet gleichzeitig die Überwachung
-der Zuordnung ein (siehe „Schutz vor Office-Updates” weiter unten). macOS kann dabei einmalig
-eine Bestätigung verlangen.
+Beim ersten Start aus `/Applications` richtet OneDrive Opener sich automatisch als Standard-App
+für Word-/Excel-/PowerPoint-Dateien ein – es sind keine Schritte nötig. macOS kann dabei einmalig
+eine Bestätigung verlangen („OneDrive Opener möchte Microsoft Word steuern” – erlauben).
 
 Zusätzlich prüfen, dass **„Beim Anmelden automatisch starten”** in den
 **Einstellungen → Allgemein** aktiviert ist. Bei einer frischen Installation aus `/Applications`
@@ -260,6 +259,45 @@ Die Protokolldatei liegt unter `~/Library/Logs/OneDriveOpener/OneDriveOpener.log
 Ab 2 MB wird sie automatisch nach `OneDriveOpener.1.log` im selben Ordner rotiert,
 damit sie nicht unbegrenzt wächst.
 
+## Word-Integration
+
+Während Word in den Vordergrund kommt, fragt OneDrive Opener per AppleScript (kein Makro-Add-in
+nötig) alle paar Sekunden nach, welche Dokumente gerade offen sind. Ein Dokument aus einem
+OneDrive-Ordner, das lokal geöffnet ist („Auf meinem Mac gespeichert") und keine ungespeicherten
+Änderungen hat, wird automatisch geschlossen und sofort mit AutoSpeichern aus der Cloud neu geöffnet.
+Das gilt auch für Dokumente, die über „Zuletzt verwendet", das Dock, Spotlight oder „Speichern unter"
+in den OneDrive-Ordner geladen werden.
+
+Dokumente mit ungespeicherten Änderungen werden nicht angefasst. Dateien, die bewusst lokal geöffnet
+wurden (⌥ beim Doppelklick oder Dialog „Ohne AutoSpeichern öffnen"), bleiben lokal. Ist OneDrive
+noch dabei, die Datei hochzuladen (max. 2 Minuten Wartezeit), wartet die App ab.
+
+**Einstellung**: **Einstellungen → Allgemein → Word → „Lokal geöffnete Dokumente automatisch mit
+AutoSpeichern öffnen"** (standardmäßig an). Aktuell nur Word; Excel und PowerPoint folgen evtl. später.
+
+**macOS-Berechtigung**: Beim ersten Öffnen fragt macOS „OneDrive Opener möchte Microsoft Word steuern"
+– erlauben. Falls abgelehnt: **Systemeinstellungen → Datenschutz & Sicherheit → Automation → OneDrive Opener
+→ Microsoft Word** hakchen.
+
+## Automatische Updates
+
+OneDrive Opener prüft 1 Minute nach dem Start und danach alle 6 Stunden die GitHub-Releases des Repositorys
+(öffentlich, keine Anmeldung nötig). Ist eine neuere Version verfügbar, wird sie heruntergeladen, verifiziert
+(Bundle-ID und Signatur müssen stimmen), schließt die laufende App, ersetzt sich selbst und startet neu – ohne
+Benutzereingriff. Die lokal kopierten Office-Symbole werden beibehalten.
+
+**Einstellungen**:
+- **„Updates automatisch installieren"** (standardmäßig an): neue Versionen sofort installieren
+- **„Jetzt suchen"** Button: Prüfung on-demand erzwingen
+- Menü **Fehlerbehebung → „Nach Updates suchen"**
+- Menü zeigt **„Update auf Version X installieren"** wenn Auto-Install aus ist
+
+**Voraussetzung**: Schreibrechte für die App in `/Applications`. Sind diese nicht vorhanden, zeigt der
+Status „bitte manuell installieren".
+
+**Hinweis**: Da die App ad-hoc signiert ist, kann macOS nach dem Update erneut Berechtigungen abfragen
+(Word-Steuerung, Anmeldeobjekt) – einfach erlauben.
+
 ## Schutz vor Office-Updates
 
 Microsoft-Office-Updates (und teils schon ein einfacher Neustart von Word, Excel oder
@@ -384,6 +422,10 @@ daher zentral per Konfigurationsprofil vorgeben. Verwendete Schlüssel:
 | `ManualMappings`     | Array von Dictionaries, je `{“localPath”: “...”, “webURL”: “...”}` | manuelle Ordner-Zuordnungen | `[]` (leer) |
 | `KeepDefaultHandler` | Bool               | Überwachung der Standard-App-Zuordnung (siehe „Schutz vor Office-Updates”) ein-/ausschalten | `false` |
 | `UseGuessedMappings` | Bool               | Geschätzte Zuordnungen trotzdem online öffnen           | `false`  |
+| `WordIntegration`    | Bool               | Lokal geöffnete Word-Dokumente automatisch mit AutoSpeichern neu öffnen | `true`   |
+| `AutoUpdate`         | Bool               | Neue Versionen aus GitHub-Releases automatisch installieren | `true`   |
+| `UpdateRepository`   | String             | GitHub-Repository (`besitzer/name`) für Updates, z. B. für einen Fork | `”andreasgrathwohl/OneDriveMac”` |
+| `OpenMethod`         | String             | Methode zum Öffnen: `officeURI` (default), `appleEvent`, oder `webURL` | `”officeURI”` |
 
 Daneben verwendet die App noch `OfficeVersions` und `LoginItemInitialized` in
 `UserDefaults` – das sind rein interne Merker (zuletzt erkannte Office-Versionen bzw.

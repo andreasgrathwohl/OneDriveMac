@@ -50,6 +50,9 @@ final class StatusController: NSObject, NSMenuDelegate {
         if let title = UserStatus.actionTitle(kind) {
             action(menu, title, #selector(performStatusAction))
         }
+        if let update = Updater.shared.available {
+            action(menu, "Update auf Version \(update.version) installieren", #selector(installUpdate))
+        }
 
         if !AppState.recent.isEmpty {
             menu.addItem(.separator())
@@ -89,6 +92,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         action(menu, "Protokoll anzeigen …", #selector(showLog), key: "l")
         action(menu, "Diagnosebericht kopieren", #selector(copyDiagnostics))
         action(menu, "Standard-App jetzt prüfen", #selector(checkNow))
+        action(menu, "Nach Updates suchen", #selector(checkUpdates))
         menu.addItem(.separator())
 
         let rows = DefaultHandler.statusRows()
@@ -96,6 +100,8 @@ final class StatusController: NSObject, NSMenuDelegate {
         info(menu, "Version \(version)")
         info(menu, "Doppelklick: \(rows.filter(\.isOurs).count) von \(rows.count) Dateitypen")
         info(menu, HandlerGuard.shared.statusText)
+        info(menu, "Word-Integration: \(WordIntegration.shared.status)")
+        info(menu, "Updates: \(Updater.shared.status)")
         info(menu, "Erkannte OneDrive-Ordner: \(PathResolver.allRoots().count)")
         return menu
     }
@@ -175,6 +181,14 @@ final class StatusController: NSObject, NSMenuDelegate {
         Settings.enabled.toggle()
         Log.info(Settings.enabled ? "Fortgesetzt" : "Pausiert")
         AppState.changed()
+    }
+
+    @objc private func installUpdate() {
+        Task { await Updater.shared.install() }
+    }
+
+    @objc private func checkUpdates() {
+        Task { await Updater.shared.check(userInitiated: true) }
     }
 
     @objc private func checkNow() {

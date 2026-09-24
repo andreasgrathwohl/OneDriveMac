@@ -33,6 +33,23 @@ final class SettingsModel: ObservableObject {
             Log.info("Geschätzte Zuordnungen online öffnen: \(useGuessed ? "ja" : "nein")")
         }
     }
+    @Published var wordIntegration: Bool {
+        didSet {
+            guard wordIntegration != Settings.wordIntegration else { return }
+            Settings.wordIntegration = wordIntegration
+            WordIntegration.shared.settingsChanged()
+            Log.info("Word-Integration \(wordIntegration ? "ein" : "aus")")
+        }
+    }
+    @Published var autoUpdate: Bool {
+        didSet {
+            guard autoUpdate != Settings.autoUpdate else { return }
+            Settings.autoUpdate = autoUpdate
+            Log.info("Automatische Updates \(autoUpdate ? "ein" : "aus")")
+        }
+    }
+    @Published var wordStatus = ""
+    @Published var updateStatus = ""
     @Published var waitSeconds: Int { didSet { Settings.syncWaitSeconds = waitSeconds } }
     @Published var openMethod: OpenMethod {
         didSet {
@@ -71,6 +88,8 @@ final class SettingsModel: ObservableObject {
         keepDefault = Settings.keepDefault
         launchAtLogin = LoginItem.isEnabled
         useGuessed = Settings.useGuessedMappings
+        wordIntegration = Settings.wordIntegration
+        autoUpdate = Settings.autoUpdate
         waitSeconds = Settings.syncWaitSeconds
         openMethod = Settings.openMethod
         mappings = Settings.manualMappings
@@ -84,6 +103,10 @@ final class SettingsModel: ObservableObject {
         keepDefault = Settings.keepDefault
         launchAtLogin = LoginItem.isEnabled
         useGuessed = Settings.useGuessedMappings
+        wordIntegration = Settings.wordIntegration
+        autoUpdate = Settings.autoUpdate
+        wordStatus = WordIntegration.shared.status
+        updateStatus = Updater.shared.status
         handlers = DefaultHandler.statusRows()
         guardStatus = HandlerGuard.shared.statusText
         status = UserStatus.kind
@@ -125,6 +148,13 @@ final class SettingsModel: ObservableObject {
             busy = false
             refreshState()
             message = errors.isEmpty ? "" : "Nicht alle Dateitypen konnten zurückgestellt werden – Details unter „Fehlerbehebung“."
+        }
+    }
+
+    func checkUpdates() {
+        Task {
+            await Updater.shared.check(userInitiated: true)
+            refreshState()
         }
     }
 
@@ -292,6 +322,27 @@ struct GeneralTab: View {
                 Text("Synchronisierung")
             } footer: {
                 Caption("Hat OneDrive eine Datei noch nicht hochgeladen, wird so lange gewartet, bevor nachgefragt wird.")
+            }
+
+            Section {
+                Toggle("Lokal geöffnete Dokumente automatisch mit AutoSpeichern öffnen", isOn: $model.wordIntegration)
+            } header: {
+                Text("Word")
+            } footer: {
+                Caption(model.wordStatus.hasPrefix("keine Berechtigung")
+                    ? "Word lässt sich nicht steuern: " + model.wordStatus
+                    : "Auch für Dokumente aus „Zuletzt verwendet“, dem Dock oder nach „Speichern unter“ in den OneDrive-Ordner. Ungespeicherte Änderungen werden nie verworfen.")
+            }
+
+            Section {
+                Toggle("Updates automatisch installieren", isOn: $model.autoUpdate)
+                HStack {
+                    Caption(model.updateStatus)
+                    Spacer()
+                    Button("Jetzt suchen") { model.checkUpdates() }
+                }
+            } header: {
+                Text("Updates")
             }
 
             if !model.message.isEmpty {

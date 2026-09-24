@@ -1,11 +1,10 @@
-## Neu in 1.2
+## Neu in 1.3
 
-- **Dokumente öffnen sich jetzt wirklich in Word, Excel und PowerPoint – mit AutoSpeichern.** Bisher startete Office, das Dokument blieb aber zu: Office für Mac ignoriert die von Microsoft dokumentierte Adressform. Die App übergibt die Datei jetzt genauso wie „In Desktop-App öffnen“ in OneDrive im Web.
-- **Office-Dateien behalten ihre Original-Symbole im Finder.** Die App übernimmt die Dokumentsymbole beim ersten Start aus dem installierten Office (sie werden nicht mit der App verteilt).
-- Office wird bei Bedarf zuerst gestartet, bevor das Dokument übergeben wird.
-- Neu unter Einstellungen → Fehlerbehebung: „Übergabe an Office“ (alternative Übergabewege für Sonderfälle).
+- **Word-Integration:** Word-Dokumente aus OneDrive, die lokal geöffnet wurden – über „Zuletzt verwendet“, das Dock, Spotlight oder nach „Speichern unter“ in den OneDrive-Ordner – werden automatisch mit AutoSpeichern neu geöffnet. Dokumente mit ungespeicherten Änderungen werden nie angefasst. macOS fragt einmalig, ob OneDrive Opener Word steuern darf – bitte erlauben.
+- **Automatische Updates:** Die App prüft die Releases auf GitHub und aktualisiert sich selbst (ab dieser Version; auf 1.3 bitte noch einmal manuell aktualisieren).
+- **Einrichtung ohne Klick:** Beim ersten Start aus „Programme“ richtet sich die App selbst als Standard-App ein.
 
-Aus 1.1: neue Oberfläche im macOS-Stil (Status in der Menüleiste, Einstellungen mit Reitern), eigenes App-Symbol.
+Aus 1.2: Dokumente öffnen zuverlässig mit AutoSpeichern, Office-Dateien behalten ihre Original-Symbole.
 
 ## Installation / Update
 
@@ -14,8 +13,8 @@ Aus 1.1: neue Oberfläche im macOS-Stil (Status in der Menüleiste, Einstellunge
    ```bash
    xattr -dr com.apple.quarantine "/Applications/OneDrive Opener.app" && open "/Applications/OneDrive Opener.app"
    ```
-3. Menüleisten-Symbol → **„Für Doppelklick aktivieren“** (falls angezeigt). Nach dem Update fragt macOS eventuell einmal erneut nach dem Start bei der Anmeldung.
+3. Nachfragen von macOS erlauben (Word steuern, ggf. Start bei der Anmeldung). Weitere Schritte sind nicht nötig.
 
-Alternativ selbst bauen: siehe [README](https://github.com/andreasgrathwohl/OneDriveMac#installation). Voraussetzungen: macOS 12+, Microsoft Office, OneDrive. Universal (Apple Silicon + Intel).
+Hinweis: Weil die App nicht mit einem Apple-Entwicklerzertifikat signiert ist, kann macOS nach einem Update die Freigaben erneut abfragen.
 
 Probleme bitte mit Diagnosebericht (Menü → Fehlerbehebung → „Diagnosebericht kopieren“) als Issue melden.

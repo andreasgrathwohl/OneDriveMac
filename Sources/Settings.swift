@@ -57,6 +57,23 @@ enum Settings {
         set { defaults.set(newValue.rawValue, forKey: "OpenMethod") }
     }
 
+    /// Lokal geöffnete OneDrive-Dokumente in Word automatisch mit AutoSpeichern neu öffnen.
+    static var wordIntegration: Bool {
+        get { defaults.object(forKey: "WordIntegration") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "WordIntegration") }
+    }
+
+    /// Neue Versionen aus den GitHub-Releases automatisch installieren.
+    static var autoUpdate: Bool {
+        get { defaults.object(forKey: "AutoUpdate") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "AutoUpdate") }
+    }
+
+    /// GitHub-Repository („besitzer/name“), aus dessen Releases aktualisiert wird.
+    static var updateRepository: String {
+        defaults.string(forKey: "UpdateRepository") ?? "andreasgrathwohl/OneDriveMac"
+    }
+
     /// Auch geschätzte Zuordnungen online öffnen (Risiko: falsche Web-Adresse). Standard: aus.
     static var useGuessedMappings: Bool {
         get { defaults.bool(forKey: "UseGuessedMappings") }
