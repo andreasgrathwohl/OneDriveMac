@@ -21,7 +21,7 @@ enum OfficeApp: String, CaseIterable {
         }
     }
 
-    /// Office-URI-Scheme, z. B. `ms-word:ofe|u|https://…`
+    /// Office-URI-Scheme (Adresse siehe `FileOpener.officeURI`)
     var scheme: String {
         switch self {
         case .word: return "ms-word"

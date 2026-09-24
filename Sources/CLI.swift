@@ -22,7 +22,7 @@ enum CLI {
                     print("Achtung:     nur geschätzt – wird \(Settings.useGuessedMappings ? "trotzdem online" : "lokal") geöffnet")
                 }
                 if let app = OfficeApp.forExtension(file.pathExtension) {
-                    print("Office-URI:  \(app.scheme):ofe|u|\(result.url)")
+                    print("Office-URI:  \(FileOpener.officeURI(app, result.url))")
                 }
             } else {
                 print("Nicht in einem erkannten OneDrive-Ordner.")

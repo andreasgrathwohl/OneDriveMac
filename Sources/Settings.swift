@@ -20,7 +20,7 @@ struct ManualMapping: Identifiable, Hashable {
 }
 
 enum OpenMethod: String, CaseIterable {
-    /// `ms-word:ofe|u|<URL>` über Launch Services (`/usr/bin/open`).
+    /// Office-Adresse (siehe `FileOpener.officeURI`) über Launch Services (`/usr/bin/open`).
     case officeURI
     /// Dieselbe Office-Adresse unverändert als Apple Event („GetURL“) direkt an die Office-App.
     case appleEvent

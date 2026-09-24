@@ -18,7 +18,7 @@ nur den lokalen Pfad.
 Office-Dateitypen (docx/docm, xlsx/xlsm/xlsb, pptx/pptm), sowohl als Eintrag in
 „Öffnen mit“ als auch – optional – als Standard-App für Doppelklick. Wird eine Datei
 über sie geöffnet, ermittelt sie die passende Web-Adresse und übergibt die Datei an
-Word/Excel/PowerPoint über eine Office-URI (`ms-word:ofe|u|<URL>` bzw. `ms-excel:…`,
+Word/Excel/PowerPoint über eine Office-URI (`ms-word:ofe|or|…|ct|…|cid|…|u|<URL>` – dasselbe Format wie „In Desktop-App öffnen“ in OneDrive im Web – bzw. `ms-excel:…`,
 `ms-powerpoint:…`) statt über den lokalen Pfad. Office öffnet die Datei dann online,
 AutoSpeichern ist aktiv.
 

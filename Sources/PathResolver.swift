@@ -56,9 +56,14 @@ enum PathResolver {
         guard let schemeEnd = b.range(of: "://") else { return nil }
         guard let slash = b[schemeEnd.upperBound...].firstIndex(of: "/") else { return b }
         let head = String(b[..<slash])
-        let segments = b[slash...].split(separator: "/").map { seg -> String in
+        var segments = b[slash...].split(separator: "/").map { seg -> String in
             let s = String(seg)
             return encodeSegment(s.removingPercentEncoding ?? s)
+        }
+        // Privates OneDrive: Konto-ID (cid) in Großbuchstaben – so übergibt sie auch
+        // OneDrive im Web bei „In Desktop-App öffnen“ an Word.
+        if head.lowercased().hasSuffix("://d.docs.live.net"), !segments.isEmpty {
+            segments[0] = segments[0].uppercased()
         }
         return head + "/" + segments.joined(separator: "/")
     }
