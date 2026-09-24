@@ -32,10 +32,9 @@ AutoSpeichern ist aktiv.
    zuzuordnen (siehe unten). Gelingt das nicht, wird die Datei ebenfalls lokal geöffnet.
 4. Ist eine Zuordnung gefunden, wird der Synchronisierungsstatus geprüft:
    - Steht noch ein Upload aus, zeigt die App ein Wartefenster und prüft erneut
-     (bis zu der in den Einstellungen konfigurierten Wartezeit).
+     (bis zu der in den Einstellungen unter **Allgemein → Synchronisierung → Auf ausstehenden Upload warten** konfigurierten Wartezeit).
    - Bei einem ungelösten Sync-Konflikt oder wenn der Upload nach der Wartezeit immer
-     noch aussteht, fragt ein Dialog nach: lokal öffnen, weiter warten, trotzdem online
-     öffnen oder abbrechen.
+     noch aussteht, fragt ein Dialog mit den Buttons **„Ohne AutoSpeichern öffnen"**, **„Weiter warten"**, **„Trotzdem mit AutoSpeichern öffnen"** und **„Abbrechen"** nach.
    - Ist die Datei synchronisiert (oder lässt sich der Status nicht ermitteln), öffnet
      die App sie online über die Office-URI.
 5. Schlägt das Öffnen über die Office-URI fehl, öffnet die App die Datei ersatzweise lokal.
@@ -105,16 +104,16 @@ erscheint oben rechts in der Menüleiste.
 
 ### Schritt 4: Einrichtung
 
-Auf das neue Menüleisten-Symbol klicken → **Einstellungen …** → Button
-**„OneDrive Opener als Standard festlegen“**. Das macht OneDrive Opener zur
-Standard-App für Doppelklick bei Word-/Excel-/PowerPoint-Dateien und schaltet
-gleichzeitig die Überwachung der Zuordnung ein (siehe „Schutz vor Office-Updates“
-weiter unten). macOS kann dabei einmalig eine Bestätigung verlangen.
+Auf das neue Menüleisten-Symbol klicken → **„Für Doppelklick aktivieren”** (oder in den
+**Einstellungen … → Allgemein → Aktivieren**). Das macht OneDrive Opener zur Standard-App
+für Doppelklick bei Word-/Excel-/PowerPoint-Dateien und schaltet gleichzeitig die Überwachung
+der Zuordnung ein (siehe „Schutz vor Office-Updates” weiter unten). macOS kann dabei einmalig
+eine Bestätigung verlangen.
 
-Zusätzlich prüfen, dass **„Bei der Anmeldung automatisch starten (empfohlen)“**
-aktiviert ist. Bei einer frischen Installation aus `/Applications` wird das beim
-ersten Start automatisch eingeschaltet; auf macOS 13 und neuer erscheint der Eintrag
-zusätzlich unter **Systemeinstellungen → Allgemein → Anmeldeobjekte**.
+Zusätzlich prüfen, dass **„Beim Anmelden automatisch starten”** in den
+**Einstellungen → Allgemein** aktiviert ist. Bei einer frischen Installation aus `/Applications`
+wird das beim ersten Start automatisch eingeschaltet; auf macOS 13 und neuer erscheint der
+Eintrag zusätzlich unter **Systemeinstellungen → Allgemein → Anmeldeobjekte**.
 
 ### Schritt 5: Test
 
@@ -158,10 +157,10 @@ Installation die App entsprechend nach `/Applications` kopieren.
 
 ### Deinstallation
 
-1. Im Einstellungsfenster **„Zurück auf Office“** klicken – das trägt Word, Excel und
+1. In den **Einstellungen → Allgemein → Standard-App → Zurück zu Office** klicken – das trägt Word, Excel und
    PowerPoint wieder als Standard-App für Doppelklick ein und schaltet die Überwachung
    der Standard-App-Zuordnung aus.
-2. OneDrive Opener über das Menü **„OneDrive Opener beenden“** beenden.
+2. OneDrive Opener über das Menüleisten-Symbol → **„OneDrive Opener beenden”** beenden.
 3. Die App aus `/Applications` löschen (`/Applications/OneDrive Opener.app`).
 4. Optional aufräumen:
 
@@ -186,25 +185,35 @@ Installation die App entsprechend nach `/Applications` kopieren.
 
 Bei jedem ersten Start ohne übergebene Datei öffnet sich automatisch das
 Einstellungsfenster (danach nicht mehr). Es lässt sich jederzeit über das Menüleisten-
-Symbol → „Einstellungen …“ erneut öffnen.
+Symbol → „Einstellungen …” erneut öffnen. Die Einstellungen sind in drei Reiter aufgeteilt:
 
-- **„Office-Dateien aus OneDrive online öffnen (AutoSpeichern)“**: Hauptschalter.
-  Ausgeschaltet öffnet OneDrive Opener alle Dateien lokal (entspricht `Enabled = false`).
-- **„Auf ausstehenden Upload warten“**: Wartezeit in Sekunden (0–120, Standard 15),
-  bevor bei einem ausstehenden Upload nachgefragt wird.
+### Allgemein
+
+- **Statusanzeige** mit farbigem Symbol und Erklärung, sowie Button zur raschen Behebung (z. B. „Für Doppelklick aktivieren”, „Reparieren” oder „Fortsetzen”).
+- **„Office-Dateien mit AutoSpeichern öffnen”**: Hauptschalter. Ausgeschaltet öffnet OneDrive Opener alle Dateien lokal (entspricht `Enabled = false`).
+- **„Beim Anmelden automatisch starten”**: Autostart-Einstellung.
+- **Standard-App** – Bereich „Doppelklick im Finder”:
+  - Button **„Aktivieren”** (wenn noch nicht eingerichtet) oder **„Zurück zu Office”** (wenn OneDrive Opener aktuell Standard-App ist)
+  - Toggle **„Nach Office-Updates automatisch wiederherstellen”**: Schaltet die Überwachung ein (siehe „Schutz vor Office-Updates” weiter unten)
+- **Synchronisierung** – Bereich „Auf ausstehenden Upload warten”: Wartezeit in Sekunden (0–120, Standard 15), bevor bei einem ausstehenden Upload nachgefragt wird.
+
+### Ordner
+
+- **„Erkannte OneDrive-Ordner”**: Zeigt automatisch erkannte Zuordnungen mit Badges „AutoSpeichern” bzw. „Ohne AutoSpeichern” (geschätzte Zuordnungen); Hover zeigt den lokalen Pfad und die Web-Adresse; Button **„Neu einlesen”** aktualisiert die Anzeige.
+- **„Eigene Zuordnungen”**: Manuell hinzugefügte Zuordnungen (haben Vorrang vor automatischer Erkennung). Button **„Zuordnung hinzufügen …”** öffnet ein Fenster zum Hinzufügen; ein Minus-Button entfernt Zuordnungen.
+- **„Unsichere Ordner trotzdem mit AutoSpeichern öffnen”**: Toggle für geschätzte Zuordnungen (wird nur angezeigt, wenn solche vorhanden sind).
+
+### Fehlerbehebung
+
+- **„Protokoll anzeigen …”**: Öffnet die Log-Datei.
+- **„In Zwischenablage kopieren”**: Erstellt den Diagnosebericht (hilfreiche für Support).
+- **„Standard-App je Dateityp”**: Zeigt aktuellen Status der Zuordnungen mit Button **„Jetzt prüfen”** für manuelle Überprüfung.
+- **„Technische Details”**: OneDrive-Ordner und deren Zuordnungen (zur Fehlersuche).
+
+### Sonstiges
+
 - **⌥ (Wahltaste)**: Beim Doppelklick gedrückt halten, um eine Datei unabhängig von
   den Einstellungen sofort lokal zu öffnen.
-- **„OneDrive Opener als Standard festlegen“**: Macht die App zur Standard-App für
-  Doppelklick bei docx/docm/xlsx/xlsm/xlsb/pptx/pptm. Unabhängig davon steht die App
-  im Finder immer als Eintrag unter „Öffnen mit“ zur Verfügung – dafür ist dieser
-  Schritt nicht nötig.
-- **„Zurück auf Office“**: Setzt Word/Excel/PowerPoint wieder als Standard-App
-  zurück (siehe auch Deinstallation).
-
-Im unteren Teil des Fensters zeigt „Automatisch erkannte OneDrive-Ordner“ die
-gefundenen Zuordnungen sowie Hinweise, falls etwas nicht eindeutig erkannt wurde;
-„Neu einlesen“ aktualisiert die Anzeige, „Diagnose kopieren“ erstellt den
-Diagnosebericht (siehe Fehlersuche).
 
 ## Menüleisten-Symbol & Protokoll
 
@@ -215,26 +224,26 @@ Darüberfahren mit der Maus zeigt denselben Status als Text):
 
 | Symbol (SF-Symbol-Name) | Bedeutung |
 |---|---|
-| `icloud.and.arrow.up` | Aktiv – Online-Öffnen eingeschaltet, Standard-App-Zuordnung in Ordnung |
-| `icloud.slash` | Online-Öffnen ist deaktiviert (Hauptschalter aus) |
-| `exclamationmark.icloud` | Standard-App-Zuordnung wurde verloren und konnte nicht automatisch wiederhergestellt werden – Handlungsbedarf |
+| Wolke mit Häkchen (`checkmark.icloud`) | Aktiv – Online-Öffnen eingeschaltet, Standard-App-Zuordnung in Ordnung |
+| Wolke (`icloud`) | Bereit – nur über „Öffnen mit” aktiv; Doppelklick noch ohne AutoSpeichern |
+| Wolke mit Ausrufezeichen (`exclamationmark.icloud`) | Office hat den Doppelklick übernommen – Standard-App-Zuordnung wurde verloren |
+| Durchgestrichene Wolke (`icloud.slash`) | Pausiert – Online-Öffnen ist deaktiviert |
 
 ### Menü
 
 Ein Klick auf das Symbol zeigt:
 
-- Versionsnummer und Status von „Online-Öffnen“
-- Anzahl der Dateitypen, für die OneDrive Opener aktuell Standard-App ist
-  (z. B. „6 von 6 Dateitypen“), mit Zusatz „überwacht“, wenn die Zuordnung aktiv
-  überwacht wird
-- bei einem Problem: eine Warnzeile mit der Beschreibung
-- Status der Standard-App-Überwachung (letzte Prüfung, Ergebnis)
-- Anzahl erkannter OneDrive-Ordner
-- die zuletzt geöffnete Datei (Name, Modus, Uhrzeit)
-- Schalter „Online-Öffnen aktiv“ und „Bei Anmeldung starten“
-- „Standard-App jetzt prüfen“ (löst eine sofortige Prüfung/Wiederherstellung aus)
-- „Protokoll anzeigen …“, „Einstellungen …“, „Diagnose in Zwischenablage kopieren“
-- „OneDrive Opener beenden“
+- Statuszeile mit Titel und Erklärung (Klick öffnet Einstellungen)
+- Ein-Klick-Aktion zum Beheben des Status: „Für Doppelklick aktivieren” (Bereit), „Reparieren” (Problem), oder „Fortsetzen” (Pausiert)
+- „Zuletzt geöffnet”-Liste (bis zu 5 Dateien, mit Kennzeichnung „mit AutoSpeichern” oder „ohne AutoSpeichern”; Klick öffnet Datei erneut; ⌥ gedrückt halten zum Öffnen ohne AutoSpeichern)
+- „Pausieren” oder „Fortsetzen” (zum Umschalten der Online-Öffnung)
+- „Einstellungen …” (⌘,)
+- Submenu „Fehlerbehebung”:
+  - „Protokoll anzeigen …” (⌘L)
+  - „Diagnosebericht kopieren”
+  - „Standard-App jetzt prüfen”
+  - Info-Zeilen: Version, Doppelklick-Status (z. B. „Doppelklick: 6 von 6 Dateitypen”), Überwachungsstatus, Anzahl erkannter OneDrive-Ordner
+- „OneDrive Opener beenden”
 
 ### Protokollfenster
 
@@ -255,11 +264,11 @@ damit sie nicht unbegrenzt wächst.
 
 Microsoft-Office-Updates (und teils schon ein einfacher Neustart von Word, Excel oder
 PowerPoint) können die Standard-App-Zuordnung für Doppelklick auf Office zurücksetzen.
-Ist die Überwachung eingeschaltet (Einstellungen → „Zuordnung überwachen und nach
-Office-Updates automatisch wiederherstellen“, bzw. `KeepDefaultHandler`), erkennt
+Ist die Überwachung eingeschaltet (Einstellungen → Allgemein → Standard-App → 
+„Nach Office-Updates automatisch wiederherstellen”, bzw. `KeepDefaultHandler`), erkennt
 OneDrive Opener das automatisch und stellt sich selbst wieder als Standard-App her –
-ohne manuellen Eingriff. Die Überwachung wird zusammen mit „OneDrive Opener als
-Standard festlegen“ eingeschaltet und mit „Zurück auf Office“ wieder ausgeschaltet.
+ohne manuellen Eingriff. Die Überwachung wird zusammen mit „Für Doppelklick aktivieren”
+eingeschaltet und mit „Zurück zu Office” wieder ausgeschaltet.
 
 Geprüft wird:
 
@@ -316,12 +325,12 @@ aus:
 #### Geschätzte Zuordnungen
 
 Zuordnungen, deren lokaler Ordner oder Web-Pfad nur geschätzt werden können, sind
-im Einstellungsfenster mit der Kennzeichnung „geschätzt” gekennzeichnet. Dies betrifft
+im Reiter **Ordner** mit dem Badge **„Ohne AutoSpeichern”** (in Orange) gekennzeichnet. Dies betrifft
 synchronisierte Unterordner einer Bibliothek (`libraryFolder`), Verknüpfungen in
 „Meine Dateien” (`AddedScope`), gemeinsame Ordner von persönlichen Konten
 (`GroupFolders.ini`), sowie den Hauptordner eines Geschäftskontos, der nur über seinen
-Ordnernamen zugeordnet werden konnte (beim privaten Konto ist „OneDrive-Persönlich“
-eindeutig und gilt nicht als geschätzt). Grund: Die binäre Ordnerstruktur in `<cid>.dat` wird nicht
+Ordnernamen zugeordnet werden konnte (beim privaten Konto ist „OneDrive-Persönlich”
+eindeutig und wird mit Badge **„AutoSpeichern”** angezeigt). Grund: Die binäre Ordnerstruktur in `<cid>.dat` wird nicht
 ausgewertet.
 
 Dateien in solchen Ordnern werden standardmäßig **lokal** geöffnet (kein AutoSpeichern),
@@ -329,25 +338,27 @@ mit einem Protokolleintrag „Zuordnung … ist nur geschätzt … → lokal”,
 vermutete Adresse enthält. So wird sichergestellt, dass die App niemals eine möglicherweise
 falsche Web-Adresse öffnet, was zu „Datei nicht gefunden”-Fehlern in Word führen würde.
 
-Im Einstellungsfenster erscheint bei vorhandenen geschätzten Zuordnungen zusätzlich ein
-Toggle „Geschätzte Zuordnungen trotzdem online öffnen”. **Empfehlung**: Statt diesen
+Im Reiter **Ordner** erscheint bei vorhandenen geschätzten Zuordnungen zusätzlich ein
+Toggle **„Unsichere Ordner trotzdem mit AutoSpeichern öffnen”**. **Empfehlung**: Statt diesen
 Schalter zu nutzen, ist es sicherer, für solche Ordner eine manuelle Zuordnung
-hinzuzufügen (manuelle Zuordnungen haben immer Vorrang).
+hinzuzufügen (manuelle Zuordnungen haben immer Vorrang und erscheinen unter **„Eigene Zuordnungen”**).
 
 Verknüpfungs- und gemeinsame Ordner, die nicht auf der obersten Ebene liegen, werden
 bis zu 3 Ebenen tief nach Name gesucht; nur ein eindeutiger Treffer wird verwendet.
 
 Im Diagnosebericht (Kommandozeile `--diagnose`) sind solche Einträge mit `[GESCHÄTZT]`
-gekennzeichnet; `--resolve` gibt zusätzlich eine Warnzeile aus.
+gekennzeichnet; `--resolve` gibt zusätzlich eine Warnzeile aus. Im Reiter **Ordner**
+erscheinen sie mit Badge **„Ohne AutoSpeichern"** (in Orange).
 
 Da das Ganze heuristisch ist, kann die Erkennung im Einzelfall danebenliegen oder
-einen Ordner offenlassen – dafür gibt es die manuelle Zuordnung.
+einen Ordner offenlassen – dafür gibt es die manuelle Zuordnung (siehe **„Eigene Zuordnungen"**).
 
 ### Manuelle Zuordnung
 
-Im Einstellungsfenster unter „Manuelle Zuordnungen (haben Vorrang)“ lässt sich pro
-Ordner ein Paar aus lokalem Pfad und Web-Adresse hinterlegen. Manuelle Zuordnungen
-haben immer Vorrang vor automatisch erkannten – bei gleich langem passendem Pfad
+Im Reiter **Ordner** unter **„Eigene Zuordnungen”** lässt sich pro Ordner ein Paar aus 
+lokalem Pfad und Web-Adresse hinterlegen. Über den Button **„Zuordnung hinzufügen …”** öffnet sich ein Fenster 
+zum Hinzufügen neuer Zuordnungen; per Minus-Button lassen sich Zuordnungen entfernen. 
+Manuelle Zuordnungen haben immer Vorrang vor automatisch erkannten – bei gleich langem passendem Pfad
 gewinnt die manuelle Zuordnung, ansonsten die jeweils längste (spezifischste)
 passende Pfad-Zuordnung.
 
@@ -455,12 +466,13 @@ für den produktiven Rollout verwendet werden.
 
 ## Fehlersuche
 
-- Menüleisten-Symbol → **„Diagnose in Zwischenablage kopieren“** kopiert einen
+- Menüleisten-Symbol → Fehlerbehebung → **„Diagnosebericht kopieren”** kopiert einen
   Diagnosebericht (erkannte OneDrive-Ordner, ausgelesene Konfigurationsdateien,
   automatisch erkannte und manuelle Zuordnungen, Status der Standard-App-Zuordnung)
   in die Zwischenablage – hilfreich zum Einfügen in eine Support-Anfrage.
-- Menüleisten-Symbol → **„Protokoll anzeigen“** öffnet die Log-Datei unter
+- Menüleisten-Symbol → Fehlerbehebung → **„Protokoll anzeigen …”** (⌘L) öffnet die Log-Datei unter
   `~/Library/Logs/OneDriveOpener/OneDriveOpener.log`.
+- Alternativ: **Einstellungen → Fehlerbehebung → Protokoll anzeigen …** oder **In Zwischenablage kopieren**.
 - Kommandozeile (z. B. per Terminal oder Remote-Management):
 
   ```sh
@@ -482,9 +494,9 @@ für den produktiven Rollout verwendet werden.
   die zu „Meine Dateien” hinzugefügt wurden (`AddedScope`), sowie gemeinsame Ordner
   von persönlichen Konten werden nur dann korrekt erkannt, wenn sie auf der obersten
   Ebene liegen oder eindeutig bis zu 3 Ebenen tief nach Name gefunden werden. Andernfalls
-  werden diese Zuordnungen als „geschätzt” gekennzeichnet und Dateien darin lokal geöffnet.
-  Eine manuelle Zuordnung oder aktivierung von „Geschätzte Zuordnungen trotzdem online
-  öffnen” ist dann nötig (die binäre Ordnerstruktur in `<cid>.dat` wird nicht ausgewertet).
+  werden diese Zuordnungen mit Badge **„Ohne AutoSpeichern”** gekennzeichnet und Dateien darin lokal geöffnet.
+  Eine manuelle Zuordnung oder Aktivierung von **„Unsichere Ordner trotzdem mit AutoSpeichern öffnen”** 
+  ist dann nötig (die binäre Ordnerstruktur in `<cid>.dat` wird nicht ausgewertet).
 - Kann ein Verknüpfungs- oder Freigabordner überhaupt nicht gefunden werden (z. B.
   weil er umbenannt wurde), fallen Dateien darin unter den OneDrive-Hauptordner und
   erhalten möglicherweise eine falsche Adresse. Im Einstellungsfenster wird in diesem

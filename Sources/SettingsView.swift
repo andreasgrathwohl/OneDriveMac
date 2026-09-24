@@ -331,7 +331,13 @@ struct FoldersTab: View {
                     .help("\(root.localPath)\n→ \(root.webURL)")
                 }
             } header: {
-                Text("Erkannte OneDrive-Ordner")
+                HStack {
+                    Text("Erkannte OneDrive-Ordner")
+                    Spacer()
+                    Button("Neu einlesen") { model.refresh() }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                }
             } footer: {
                 if model.detected.contains(where: \.isGuess) {
                     Caption("Bei Ordnern „Ohne AutoSpeichern“ lässt sich die Online-Adresse nicht sicher bestimmen. Lege dafür unten eine eigene Zuordnung an.")
@@ -374,13 +380,6 @@ struct FoldersTab: View {
                     Toggle("Unsichere Ordner trotzdem mit AutoSpeichern öffnen", isOn: $model.useGuessed)
                 } footer: {
                     Caption("Stimmt die vermutete Adresse nicht, meldet Office „Datei nicht gefunden“.")
-                }
-            }
-
-            Section {
-                HStack {
-                    Spacer()
-                    Button("Ordner neu einlesen") { model.refresh() }
                 }
             }
         }
