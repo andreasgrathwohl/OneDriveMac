@@ -43,11 +43,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showSettings() {
         if settingsWindow == nil {
-            settingsWindow = makeWindow(title: "OneDrive Opener", size: NSSize(width: 720, height: 720),
-                                        content: NSHostingController(rootView: SettingsView(model: model)))
+            settingsWindow = makeSettingsWindow()
         }
         model.refresh()
         bringToFront(settingsWindow)
+    }
+
+    /// Einstellungsfenster im macOS-Stil: Reiter als Symbolleiste, Fenstertitel = Reitername.
+    private func makeSettingsWindow() -> NSWindow {
+        let size = NSSize(width: 620, height: 560)
+        let tabs = NSTabViewController()
+        tabs.tabStyle = .toolbar
+        func tab<V: View>(_ title: String, _ symbol: String, _ view: V) -> NSTabViewItem {
+            let controller = NSHostingController(rootView: view.frame(width: size.width, height: size.height))
+            let item = NSTabViewItem(viewController: controller)
+            item.label = title
+            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+            return item
+        }
+        tabs.addTabViewItem(tab("Allgemein", "gearshape", GeneralTab(model: model)))
+        tabs.addTabViewItem(tab("Ordner", "folder", FoldersTab(model: model)))
+        tabs.addTabViewItem(tab("Fehlerbehebung", "stethoscope", TroubleshootingTab(model: model)))
+
+        let window = NSWindow(contentViewController: tabs)
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.isReleasedWhenClosed = false
+        if #available(macOS 11.0, *) { window.toolbarStyle = .preference }
+        window.setContentSize(size)
+        window.center()
+        return window
     }
 
     func showLog() {

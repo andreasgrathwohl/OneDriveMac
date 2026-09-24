@@ -6,6 +6,8 @@
 	<string>de</string>
 	<key>CFBundleExecutable</key>
 	<string>OneDriveOpener</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>__BUNDLE_ID__</string>
 	<key>CFBundleName</key>

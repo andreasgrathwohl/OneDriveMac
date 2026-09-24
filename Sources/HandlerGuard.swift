@@ -71,7 +71,10 @@ final class HandlerGuard {
     func check(reason: String, force: Bool) async {
         guard !running else { return }
         running = true
-        defer { running = false }
+        defer {
+            running = false
+            AppState.changed()
+        }
 
         detectOfficeUpdate()
         lastCheck = Date()
@@ -147,11 +150,19 @@ final class HandlerGuard {
 /// Gemeinsamer Zustand für das Menüleisten-Symbol.
 @MainActor
 enum AppState {
-    static var handlerProblem: String?
-    static var lastOpen: (name: String, mode: String, date: Date)?
+    struct RecentFile {
+        let url: URL
+        let online: Bool
+        let date: Date
+    }
 
-    static func recordOpen(_ file: URL, mode: String) {
-        lastOpen = (file.lastPathComponent, mode, Date())
+    static var handlerProblem: String?
+    private(set) static var recent: [RecentFile] = []
+
+    static func recordOpen(_ file: URL, online: Bool) {
+        recent.removeAll { $0.url == file }
+        recent.insert(RecentFile(url: file, online: online, date: Date()), at: 0)
+        if recent.count > 5 { recent.removeLast(recent.count - 5) }
         changed()
     }
 

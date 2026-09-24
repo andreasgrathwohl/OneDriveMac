@@ -27,6 +27,19 @@ jobs:
       - name: Selbsttest (Diagnose über die Kommandozeile)
         run: '"build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --diagnose'
 
+      - name: Screenshots der Oberfläche
+        continue-on-error: true
+        run: |
+          "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --screenshots build/screenshots
+          ICNS="build/OneDrive Opener.app/Contents/Resources/AppIcon.icns"
+          if [[ -f "$ICNS" ]]; then sips -s format png -Z 512 "$ICNS" --out build/screenshots/app-icon.png; fi
+
+      - uses: actions/upload-artifact@v5
+        continue-on-error: true
+        with:
+          name: Screenshots
+          path: build/screenshots
+
       - name: ZIP erstellen
         run: |
           NAME="OneDriveOpener-${GITHUB_REF_NAME#v}"

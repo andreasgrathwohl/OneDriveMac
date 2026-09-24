@@ -35,7 +35,7 @@ enum FileOpener {
         while true {
             var state = SyncStatus.current(file)
             if state == .pending {
-                waitingPanel.show("Warte, bis OneDrive „\(file.lastPathComponent)“ hochgeladen hat …")
+                waitingPanel.show("OneDrive lädt „\(file.lastPathComponent)“ noch hoch …")
                 state = await SyncStatus.waitForUpload(file, timeout: Settings.syncWaitSeconds)
                 waitingPanel.hide()
             }
@@ -66,7 +66,7 @@ enum FileOpener {
             try process.run()
             process.waitUntilExit()
             if process.terminationStatus == 0 {
-                AppState.recordOpen(file, mode: "online")
+                AppState.recordOpen(file, online: true)
                 return
             }
             Log.error("open beendet mit Status \(process.terminationStatus)")
@@ -82,7 +82,7 @@ enum FileOpener {
             return
         }
         Log.info("Öffne lokal mit \(app.displayName): \(file.path)")
-        AppState.recordOpen(file, mode: "lokal")
+        AppState.recordOpen(file, online: false)
         NSWorkspace.shared.open([file], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
             if let error { Log.error("Lokales Öffnen fehlgeschlagen: \(error.localizedDescription)") }
         }
@@ -94,19 +94,19 @@ enum FileOpener {
         let alert = NSAlert()
         alert.alertStyle = .warning
         if conflict {
-            alert.messageText = "OneDrive meldet einen Konflikt"
-            alert.informativeText = "Für „\(file.lastPathComponent)“ gibt es einen Synchronisierungskonflikt. Bitte zuerst in OneDrive klären oder die Datei lokal öffnen (ohne AutoSpeichern)."
+            alert.messageText = "„\(file.lastPathComponent)“ hat einen Synchronisierungskonflikt"
+            alert.informativeText = "OneDrive konnte zwei Versionen dieser Datei nicht zusammenführen. Klicke auf das OneDrive-Symbol in der Menüleiste, um den Konflikt zu lösen, oder öffne die Datei vorerst ohne AutoSpeichern."
         } else {
-            alert.messageText = "Datei noch nicht vollständig synchronisiert"
-            alert.informativeText = "„\(file.lastPathComponent)“ hat lokale Änderungen, die OneDrive noch nicht hochgeladen hat. Wird jetzt die Online-Version geöffnet, fehlen diese Änderungen möglicherweise."
+            alert.messageText = "„\(file.lastPathComponent)“ wird noch hochgeladen"
+            alert.informativeText = "OneDrive hat die letzten Änderungen noch nicht hochgeladen. Wenn du die Datei jetzt mit AutoSpeichern öffnest, fehlen diese Änderungen möglicherweise."
         }
         var choices: [Choice] = [.local]
-        alert.addButton(withTitle: "Lokal öffnen")
+        alert.addButton(withTitle: "Ohne AutoSpeichern öffnen")
         if !conflict {
             alert.addButton(withTitle: "Weiter warten")
             choices.append(.wait)
         }
-        alert.addButton(withTitle: "Trotzdem online öffnen")
+        alert.addButton(withTitle: "Trotzdem mit AutoSpeichern öffnen")
         choices.append(.online)
         alert.addButton(withTitle: "Abbrechen")
         choices.append(.cancel)

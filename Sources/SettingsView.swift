@@ -1,11 +1,14 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class SettingsModel: ObservableObject {
     @Published var enabled: Bool {
         didSet {
+            guard enabled != Settings.enabled else { return }
             Settings.enabled = enabled
+            Log.info(enabled ? "Fortgesetzt" : "Pausiert")
             AppState.changed()
         }
     }
@@ -14,11 +17,7 @@ final class SettingsModel: ObservableObject {
             guard keepDefault != Settings.keepDefault else { return }
             Settings.keepDefault = keepDefault
             Log.info("Überwachung der Standard-App \(keepDefault ? "ein" : "aus")")
-            Task {
-                await HandlerGuard.shared.check(reason: "Einstellung geändert", force: true)
-                handlers = DefaultHandler.statusRows()
-                guardStatus = HandlerGuard.shared.statusText
-            }
+            Task { await HandlerGuard.shared.check(reason: "Einstellung geändert", force: true) }
         }
     }
     @Published var launchAtLogin: Bool {
@@ -34,7 +33,6 @@ final class SettingsModel: ObservableObject {
             Log.info("Geschätzte Zuordnungen online öffnen: \(useGuessed ? "ja" : "nein")")
         }
     }
-    @Published var guardStatus = ""
     @Published var waitSeconds: Int { didSet { Settings.syncWaitSeconds = waitSeconds } }
     @Published var mappings: [ManualMapping] {
         didSet {
@@ -42,14 +40,23 @@ final class SettingsModel: ObservableObject {
             OneDriveConfig.invalidateCache()
         }
     }
+
+    @Published var status: UserStatus.Kind = .openWithOnly
+    @Published var guardStatus = ""
     @Published var detected: [SyncRoot] = []
     @Published var notes: [String] = []
     @Published var handlers: [HandlerRow] = []
     @Published var message = ""
+    @Published var busy = false
+
     @Published var newLocal = ""
     @Published var newURL = ""
+    @Published var sheetError = ""
 
     let openLog: () -> Void
+    private var observer: AnyCancellable?
+
+    var isDefault: Bool { !handlers.isEmpty && handlers.allSatisfy(\.isOurs) }
 
     init(openLog: @escaping () -> Void) {
         self.openLog = openLog
@@ -59,42 +66,64 @@ final class SettingsModel: ObservableObject {
         useGuessed = Settings.useGuessedMappings
         waitSeconds = Settings.syncWaitSeconds
         mappings = Settings.manualMappings
+        observer = NotificationCenter.default.publisher(for: .appStateChanged)
+            .sink { [weak self] _ in Task { @MainActor in self?.refreshState() } }
     }
 
-    func refresh() {
+    /// Schnelle Aktualisierung (Schalter, Status) – ohne OneDrive-Ordner neu einzulesen.
+    func refreshState() {
         enabled = Settings.enabled
         keepDefault = Settings.keepDefault
         launchAtLogin = LoginItem.isEnabled
         useGuessed = Settings.useGuessedMappings
+        handlers = DefaultHandler.statusRows()
         guardStatus = HandlerGuard.shared.statusText
+        status = UserStatus.kind
+    }
+
+    func refresh() {
+        refreshState()
         OneDriveConfig.invalidateCache()
         let det = OneDriveConfig.detect()
         detected = det.roots
-        notes = det.notes.filter { !$0.hasPrefix("Einstellungsordner") }
-        handlers = DefaultHandler.statusRows()
+        notes = det.notes
+    }
+
+    func performStatusAction() {
+        let kind = status
+        busy = true
+        Task {
+            await UserStatus.performAction(kind)
+            busy = false
+            refreshState()
+        }
     }
 
     func makeDefault() {
+        busy = true
         Task {
-            let errors = await DefaultHandler.setAsDefault()
-            keepDefault = true
-            handlers = DefaultHandler.statusRows()
-            guardStatus = HandlerGuard.shared.statusText
-            message = errors.isEmpty
-                ? "OneDrive Opener ist jetzt Standard für Word-, Excel- und PowerPoint-Dateien und wird überwacht."
-                : "Teilweise fehlgeschlagen:\n" + errors.joined(separator: "\n")
+            await UserStatus.performAction(.openWithOnly)
+            busy = false
+            refreshState()
+            message = isDefault ? "" : "Nicht alle Dateitypen konnten umgestellt werden – Details unter „Fehlerbehebung“."
         }
     }
 
     func restoreOffice() {
         keepDefault = false
+        busy = true
         Task {
             let errors = await DefaultHandler.restoreOffice()
-            handlers = DefaultHandler.statusRows()
-            guardStatus = HandlerGuard.shared.statusText
-            message = errors.isEmpty
-                ? "Word, Excel und PowerPoint sind wieder Standard."
-                : "Teilweise fehlgeschlagen:\n" + errors.joined(separator: "\n")
+            busy = false
+            refreshState()
+            message = errors.isEmpty ? "" : "Nicht alle Dateitypen konnten zurückgestellt werden – Details unter „Fehlerbehebung“."
+        }
+    }
+
+    func checkNow() {
+        Task {
+            await HandlerGuard.shared.check(reason: "manuell", force: true)
+            refreshState()
         }
     }
 
@@ -103,25 +132,39 @@ final class SettingsModel: ObservableObject {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
+        panel.prompt = "Auswählen"
+        panel.message = "Wähle den lokalen OneDrive- oder SharePoint-Ordner."
         panel.directoryURL = OneDriveConfig.home.appendingPathComponent("Library/CloudStorage")
         if panel.runModal() == .OK, let url = panel.url {
             newLocal = url.path
         }
     }
 
-    func addMapping() {
+    @discardableResult
+    func addMapping() -> Bool {
         let local = newLocal.trimmingCharacters(in: .whitespaces)
         let web = newURL.trimmingCharacters(in: .whitespaces)
-        guard OneDriveConfig.isDirectory(local) else { message = "Der lokale Ordner existiert nicht."; return }
-        guard web.lowercased().hasPrefix("https://") else { message = "Die Web-URL muss mit https:// beginnen."; return }
+        guard OneDriveConfig.isDirectory(local) else {
+            sheetError = "Der Ordner wurde nicht gefunden."
+            return false
+        }
+        guard web.lowercased().hasPrefix("https://") else {
+            sheetError = "Die Web-Adresse muss mit https:// beginnen."
+            return false
+        }
         mappings.append(ManualMapping(localPath: local, webURL: web))
+        Log.info("Eigene Zuordnung hinzugefügt: \(local) → \(web)")
         newLocal = ""
         newURL = ""
-        message = "Zuordnung hinzugefügt."
+        sheetError = ""
+        refresh()
+        return true
     }
 
     func remove(_ mapping: ManualMapping) {
         mappings.removeAll { $0.id == mapping.id }
+        Log.info("Eigene Zuordnung entfernt: \(mapping.localPath)")
+        refresh()
     }
 
     func copyDiagnostics() {
@@ -129,114 +172,327 @@ final class SettingsModel: ObservableObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(report, forType: .string)
         Log.info("Diagnose erstellt:\n\(report)")
-        message = "Diagnose wurde in die Zwischenablage kopiert."
+        message = "Der Diagnosebericht wurde in die Zwischenablage kopiert."
     }
 }
 
-struct SettingsView: View {
+// MARK: - Gemeinsame Bausteine
+
+private extension View {
+    /// Systemeinstellungen-Optik ab macOS 13, sonst schlichtes Formular.
+    @ViewBuilder func settingsFormStyle() -> some View {
+        if #available(macOS 13.0, *) {
+            self.formStyle(.grouped)
+        } else {
+            self.padding(20)
+        }
+    }
+}
+
+private struct Caption: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text).font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct Badge: View {
+    let text: String
+    let color: Color
+    var body: some View {
+        Text(text)
+            .font(.caption.weight(.medium))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.15)))
+    }
+}
+
+private struct FileIcon: View {
+    let path: String
+    var body: some View {
+        Image(nsImage: NSWorkspace.shared.icon(forFile: path))
+            .resizable()
+            .frame(width: 24, height: 24)
+    }
+}
+
+// MARK: - Allgemein
+
+struct GeneralTab: View {
+    @ObservedObject var model: SettingsModel
+    private let waitOptions = [0, 5, 15, 30, 60]
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(spacing: 14) {
+                    Image(systemName: UserStatus.symbol(model.status))
+                        .font(.system(size: 34))
+                        .foregroundColor(Color(UserStatus.color(model.status)))
+                        .frame(width: 44)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(UserStatus.title(model.status)).font(.headline)
+                        Caption(UserStatus.subtitle(model.status))
+                    }
+                    Spacer()
+                    if let action = UserStatus.actionTitle(model.status) {
+                        Button(action) { model.performStatusAction() }
+                            .disabled(model.busy)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section {
+                Toggle("Office-Dateien mit AutoSpeichern öffnen", isOn: $model.enabled)
+                Toggle("Beim Anmelden automatisch starten", isOn: $model.launchAtLogin)
+            } footer: {
+                Caption("Tipp: Halte beim Doppelklick die ⌥-Taste gedrückt, um eine Datei ohne AutoSpeichern zu öffnen.")
+            }
+
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Doppelklick im Finder")
+                        Caption(model.isDefault
+                            ? "Word-, Excel- und PowerPoint-Dateien werden über OneDrive Opener geöffnet."
+                            : "Office öffnet Dateien direkt – ohne AutoSpeichern.")
+                    }
+                    Spacer()
+                    if model.isDefault {
+                        Button("Zurück zu Office") { model.restoreOffice() }.disabled(model.busy)
+                    } else {
+                        Button("Aktivieren") { model.makeDefault() }.disabled(model.busy)
+                    }
+                }
+                Toggle("Nach Office-Updates automatisch wiederherstellen", isOn: $model.keepDefault)
+                    .disabled(!model.isDefault && !model.keepDefault)
+            } header: {
+                Text("Standard-App")
+            }
+
+            Section {
+                Picker("Auf ausstehenden Upload warten", selection: $model.waitSeconds) {
+                    ForEach(Array(Set(waitOptions + [model.waitSeconds])).sorted(), id: \.self) { seconds in
+                        Text(label(for: seconds)).tag(seconds)
+                    }
+                }
+            } header: {
+                Text("Synchronisierung")
+            } footer: {
+                Caption("Hat OneDrive eine Datei noch nicht hochgeladen, wird so lange gewartet, bevor nachgefragt wird.")
+            }
+
+            if !model.message.isEmpty {
+                Section { Caption(model.message) }
+            }
+        }
+        .settingsFormStyle()
+    }
+
+    private func label(for seconds: Int) -> String {
+        switch seconds {
+        case 0: return "Nicht warten"
+        case 60: return "1 Minute"
+        default: return "\(seconds) Sekunden"
+        }
+    }
+}
+
+// MARK: - Ordner
+
+struct FoldersTab: View {
+    @ObservedObject var model: SettingsModel
+    @State private var showAdd = false
+
+    var body: some View {
+        Form {
+            Section {
+                if model.detected.isEmpty {
+                    Caption("Keine OneDrive-Ordner gefunden. Ist OneDrive gestartet und angemeldet?")
+                }
+                ForEach(model.detected, id: \.self) { root in
+                    HStack(spacing: 10) {
+                        FileIcon(path: root.localPath)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(FolderInfo.name(root))
+                            Caption(FolderInfo.detail(root))
+                        }
+                        Spacer()
+                        if root.isGuess && !model.useGuessed {
+                            Badge(text: "Ohne AutoSpeichern", color: .orange)
+                        } else {
+                            Badge(text: "AutoSpeichern", color: .green)
+                        }
+                    }
+                    .help("\(root.localPath)\n→ \(root.webURL)")
+                }
+            } header: {
+                Text("Erkannte OneDrive-Ordner")
+            } footer: {
+                if model.detected.contains(where: \.isGuess) {
+                    Caption("Bei Ordnern „Ohne AutoSpeichern“ lässt sich die Online-Adresse nicht sicher bestimmen. Lege dafür unten eine eigene Zuordnung an.")
+                }
+            }
+
+            Section {
+                if model.mappings.isEmpty {
+                    Caption("Keine eigenen Zuordnungen.")
+                }
+                ForEach(model.mappings) { mapping in
+                    HStack(spacing: 10) {
+                        FileIcon(path: mapping.localPath)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(URL(fileURLWithPath: mapping.localPath).lastPathComponent)
+                            Caption(mapping.webURL)
+                        }
+                        Spacer()
+                        Button {
+                            model.remove(mapping)
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Zuordnung entfernen")
+                    }
+                }
+                HStack {
+                    Spacer()
+                    Button("Zuordnung hinzufügen …") { showAdd = true }
+                }
+            } header: {
+                Text("Eigene Zuordnungen")
+            } footer: {
+                Caption("Eigene Zuordnungen haben Vorrang vor der automatischen Erkennung.")
+            }
+
+            if model.detected.contains(where: \.isGuess) {
+                Section {
+                    Toggle("Unsichere Ordner trotzdem mit AutoSpeichern öffnen", isOn: $model.useGuessed)
+                } footer: {
+                    Caption("Stimmt die vermutete Adresse nicht, meldet Office „Datei nicht gefunden“.")
+                }
+            }
+
+            Section {
+                HStack {
+                    Spacer()
+                    Button("Ordner neu einlesen") { model.refresh() }
+                }
+            }
+        }
+        .settingsFormStyle()
+        .sheet(isPresented: $showAdd) {
+            AddMappingSheet(model: model, isPresented: $showAdd)
+        }
+    }
+}
+
+private struct AddMappingSheet: View {
+    @ObservedObject var model: SettingsModel
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Eigene Zuordnung hinzufügen").font(.headline)
+            Caption("Verbindet einen lokalen Ordner mit seiner Adresse in OneDrive oder SharePoint im Web, damit Dateien darin mit AutoSpeichern geöffnet werden.")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Lokaler Ordner")
+                HStack {
+                    TextField("", text: $model.newLocal)
+                    Button("Auswählen …") { model.chooseFolder() }
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Web-Adresse")
+                TextField("https://firma.sharepoint.com/sites/Team/Freigegebene Dokumente", text: $model.newURL)
+                Caption("Bibliothek oder Ordner im Browser öffnen und die Adresse bis zum Ordnernamen kopieren.")
+            }
+            if !model.sheetError.isEmpty {
+                Text(model.sheetError).font(.callout).foregroundColor(.red)
+            }
+            HStack {
+                Spacer()
+                Button("Abbrechen") {
+                    model.sheetError = ""
+                    isPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+                Button("Hinzufügen") {
+                    if model.addMapping() { isPresented = false }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.newLocal.isEmpty || model.newURL.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 500)
+    }
+}
+
+// MARK: - Fehlerbehebung
+
+struct TroubleshootingTab: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                GroupBox(label: Text("Allgemein").bold()) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Office-Dateien aus OneDrive online öffnen (AutoSpeichern)", isOn: $model.enabled)
-                        Toggle("Bei der Anmeldung automatisch starten (empfohlen)", isOn: $model.launchAtLogin)
-                        Stepper("Auf ausstehenden Upload warten: \(model.waitSeconds) s",
-                                value: $model.waitSeconds, in: 0...120, step: 5)
-                        Text("Tipp: ⌥ (Wahltaste) beim Doppelklick gedrückt halten, um eine Datei lokal ohne Umleitung zu öffnen.")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                    .padding(6).frame(maxWidth: .infinity, alignment: .leading)
+        Form {
+            Section {
+                HStack {
+                    Text("Protokoll")
+                    Spacer()
+                    Button("Anzeigen …") { model.openLog() }
                 }
-
-                GroupBox(label: Text("Standard-App für Doppelklick").bold()) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(model.handlers, id: \.self) { row in
-                            HStack {
-                                Text(".\(row.ext)").frame(width: 60, alignment: .leading)
-                                Text(row.handler).foregroundColor(row.isOurs ? .green : .secondary)
-                            }
-                        }
-                        HStack {
-                            Button("OneDrive Opener als Standard festlegen") { model.makeDefault() }
-                            Button("Zurück auf Office") { model.restoreOffice() }
-                        }
-                        Toggle("Zuordnung überwachen und nach Office-Updates automatisch wiederherstellen",
-                               isOn: $model.keepDefault)
-                        Text(model.guardStatus).font(.caption).foregroundColor(.secondary)
-                        Text("Unabhängig davon steht die App im Finder immer unter „Öffnen mit“ zur Verfügung.")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                    .padding(6).frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    Text("Diagnosebericht")
+                    Spacer()
+                    Button("In Zwischenablage kopieren") { model.copyDiagnostics() }
                 }
-
-                GroupBox(label: Text("Automatisch erkannte OneDrive-Ordner").bold()) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if model.detected.isEmpty {
-                            Text("Keine Ordner erkannt. Bitte unten manuell zuordnen und die Diagnose prüfen.")
-                                .foregroundColor(.secondary)
-                        }
-                        ForEach(model.detected, id: \.self) { root in
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack {
-                                    Text(root.localPath).font(.system(.body, design: .monospaced))
-                                    if root.isGuess {
-                                        Text("geschätzt").font(.caption).foregroundColor(.orange)
-                                    }
-                                }
-                                Text("→ \(root.webURL)").font(.caption).foregroundColor(.secondary)
-                            }
-                        }
-                        if model.detected.contains(where: \.isGuess) {
-                            Toggle("Geschätzte Zuordnungen trotzdem online öffnen (Risiko: falsche Adresse, Word meldet dann „nicht gefunden“)",
-                                   isOn: $model.useGuessed)
-                            Text("Sonst werden Dateien darin lokal geöffnet. Besser: unten eine manuelle Zuordnung anlegen.")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        ForEach(model.notes, id: \.self) { note in
-                            Text(note).font(.caption).foregroundColor(.orange)
-                        }
-                        HStack {
-                            Button("Neu einlesen") { model.refresh() }
-                            Button("Diagnose kopieren") { model.copyDiagnostics() }
-                            Button("Protokoll anzeigen") { model.openLog() }
-                        }
-                    }
-                    .padding(6).frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                GroupBox(label: Text("Manuelle Zuordnungen (haben Vorrang)").bold()) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(model.mappings) { mapping in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(mapping.localPath).font(.system(.body, design: .monospaced))
-                                    Text("→ \(mapping.webURL)").font(.caption).foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Button("Entfernen") { model.remove(mapping) }
-                            }
-                        }
-                        HStack {
-                            TextField("Lokaler Ordner", text: $model.newLocal)
-                            Button("Wählen …") { model.chooseFolder() }
-                        }
-                        TextField("Web-URL, z. B. https://firma.sharepoint.com/sites/Team/Freigegebene Dokumente",
-                                  text: $model.newURL)
-                        Button("Hinzufügen") { model.addMapping() }
-                            .disabled(model.newLocal.isEmpty || model.newURL.isEmpty)
-                    }
-                    .padding(6).frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                if !model.message.isEmpty {
-                    Text(model.message).foregroundColor(.accentColor)
-                }
+            } header: {
+                Text("Protokoll und Diagnose")
+            } footer: {
+                Caption(model.message.isEmpty
+                    ? "Bitte beim Melden eines Problems den Diagnosebericht mitschicken."
+                    : model.message)
             }
-            .padding(20)
+
+            Section {
+                ForEach(model.handlers, id: \.self) { row in
+                    HStack {
+                        Text(".\(row.ext)").font(.system(.body, design: .monospaced))
+                        Spacer()
+                        Text(row.handler).foregroundColor(row.isOurs ? .secondary : .orange)
+                    }
+                }
+                HStack {
+                    Caption(model.guardStatus)
+                    Spacer()
+                    Button("Jetzt prüfen") { model.checkNow() }
+                }
+            } header: {
+                Text("Standard-App je Dateityp")
+            }
+
+            Section {
+                ForEach(model.detected, id: \.self) { root in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(root.localPath).font(.system(.caption, design: .monospaced))
+                        Text("→ \(root.webURL)").font(.system(.caption, design: .monospaced)).foregroundColor(.secondary)
+                        Caption(root.source + (root.isGuess ? " · geschätzt" : ""))
+                    }
+                    .textSelection(.enabled)
+                }
+                ForEach(model.notes, id: \.self) { note in
+                    Text(note).font(.caption).foregroundColor(.orange)
+                }
+            } header: {
+                Text("Technische Details")
+            }
         }
-        .frame(minWidth: 620, minHeight: 520)
+        .settingsFormStyle()
     }
 }

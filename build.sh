@@ -40,6 +40,18 @@ sed -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
     Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
 
+echo "→ Erzeuge App-Icon"
+ICONSET_DIR="$BUILD_DIR/AppIcon.iconset"
+rm -rf "$ICONSET_DIR"
+if xcrun swift Tools/MakeIcon.swift "$ICONSET_DIR" && \
+   iconutil -c icns "$ICONSET_DIR" -o "$APP/Contents/Resources/AppIcon.icns"; then
+  echo "✓ App-Icon erzeugt"
+else
+  echo "⚠ Warnung: App-Icon konnte nicht erzeugt werden – baue ohne Icon weiter"
+  rm -f "$APP/Contents/Resources/AppIcon.icns"
+fi
+rm -rf "$ICONSET_DIR"
+
 echo "→ Signiere ($SIGN_IDENTITY)"
 codesign --force --options runtime --timestamp=none --sign "$SIGN_IDENTITY" "$APP"
 
