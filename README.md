@@ -47,6 +47,27 @@ unterstützen ohnehin kein AutoSpeichern.
 
 Repository: https://github.com/andreasgrathwohl/OneDriveMac (öffentlich, keine Anmeldung nötig)
 
+### Variante A: Fertige App herunterladen (ohne Entwicklerwerkzeuge)
+
+1. Unter [Releases](https://github.com/andreasgrathwohl/OneDriveMac/releases/latest) die
+   Datei `OneDriveOpener-<Version>.zip` herunterladen und per Doppelklick entpacken.
+2. `OneDrive Opener.app` in den Ordner **Programme** (`/Applications`) ziehen.
+3. Die App ist nicht von Apple notarisiert, deshalb blockiert macOS den ersten Start.
+   Einmalig im Terminal freigeben:
+
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/OneDrive Opener.app" && open "/Applications/OneDrive Opener.app"
+   ```
+
+   Alternativ: App doppelklicken, Meldung schließen, dann **Systemeinstellungen →
+   Datenschutz & Sicherheit → „Trotzdem öffnen“**.
+4. Weiter mit Schritt 4 (Einrichtung) unten.
+
+Die ZIP-Dateien werden automatisch von GitHub Actions auf macOS gebaut
+(`.github/workflows/build.yml`).
+
+### Variante B: Selbst bauen
+
 ### Schritt 1: Terminal öffnen
 
 Programme → Dienstprogramme → Terminal.
