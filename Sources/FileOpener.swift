@@ -18,8 +18,16 @@ enum FileOpener {
             return
         }
 
-        guard let web = PathResolver.webURL(for: file) else {
+        guard let resolved = PathResolver.resolve(file, roots: PathResolver.allRoots()) else {
             Log.info("Nicht in einem bekannten OneDrive-Ordner → lokal")
+            openLocally(file, app)
+            return
+        }
+        let web = resolved.url
+        let root = resolved.root
+        if root.isGuess && !Settings.useGuessedMappings {
+            Log.info("Zuordnung für \(root.localPath) ist nur geschätzt (\(root.source)) → lokal. "
+                + "Für AutoSpeichern bitte manuell zuordnen. Vermutete Adresse: \(web)")
             openLocally(file, app)
             return
         }

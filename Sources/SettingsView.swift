@@ -27,6 +27,13 @@ final class SettingsModel: ObservableObject {
             LoginItem.set(launchAtLogin)
         }
     }
+    @Published var useGuessed: Bool {
+        didSet {
+            guard useGuessed != Settings.useGuessedMappings else { return }
+            Settings.useGuessedMappings = useGuessed
+            Log.info("Geschätzte Zuordnungen online öffnen: \(useGuessed ? "ja" : "nein")")
+        }
+    }
     @Published var guardStatus = ""
     @Published var waitSeconds: Int { didSet { Settings.syncWaitSeconds = waitSeconds } }
     @Published var mappings: [ManualMapping] {
@@ -49,6 +56,7 @@ final class SettingsModel: ObservableObject {
         enabled = Settings.enabled
         keepDefault = Settings.keepDefault
         launchAtLogin = LoginItem.isEnabled
+        useGuessed = Settings.useGuessedMappings
         waitSeconds = Settings.syncWaitSeconds
         mappings = Settings.manualMappings
     }
@@ -57,6 +65,7 @@ final class SettingsModel: ObservableObject {
         enabled = Settings.enabled
         keepDefault = Settings.keepDefault
         launchAtLogin = LoginItem.isEnabled
+        useGuessed = Settings.useGuessedMappings
         guardStatus = HandlerGuard.shared.statusText
         OneDriveConfig.invalidateCache()
         let det = OneDriveConfig.detect()
@@ -171,9 +180,20 @@ struct SettingsView: View {
                         }
                         ForEach(model.detected, id: \.self) { root in
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(root.localPath).font(.system(.body, design: .monospaced))
+                                HStack {
+                                    Text(root.localPath).font(.system(.body, design: .monospaced))
+                                    if root.isGuess {
+                                        Text("geschätzt").font(.caption).foregroundColor(.orange)
+                                    }
+                                }
                                 Text("→ \(root.webURL)").font(.caption).foregroundColor(.secondary)
                             }
+                        }
+                        if model.detected.contains(where: \.isGuess) {
+                            Toggle("Geschätzte Zuordnungen trotzdem online öffnen (Risiko: falsche Adresse, Word meldet dann „nicht gefunden“)",
+                                   isOn: $model.useGuessed)
+                            Text("Sonst werden Dateien darin lokal geöffnet. Besser: unten eine manuelle Zuordnung anlegen.")
+                                .font(.caption).foregroundColor(.secondary)
                         }
                         ForEach(model.notes, id: \.self) { note in
                             Text(note).font(.caption).foregroundColor(.orange)

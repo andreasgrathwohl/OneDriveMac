@@ -15,6 +15,9 @@ enum CLI {
             if let result = PathResolver.resolve(file, roots: PathResolver.allRoots()) {
                 print("Web-URL:     \(result.url)")
                 print("Zuordnung:   \(result.root.localPath) (\(result.root.source))")
+                if result.root.isGuess {
+                    print("Achtung:     nur geschätzt – wird \(Settings.useGuessedMappings ? "trotzdem online" : "lokal") geöffnet")
+                }
                 if let app = OfficeApp.forExtension(file.pathExtension) {
                     print("Office-URI:  \(app.scheme):ofe|u|\(result.url)")
                 }

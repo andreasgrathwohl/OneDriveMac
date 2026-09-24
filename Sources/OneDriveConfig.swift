@@ -5,6 +5,9 @@ struct SyncRoot: Hashable {
     let localPath: String
     let webURL: String
     let source: String
+    /// Lokaler Ordner oder Web-Pfad nur geschätzt (Ordnerbaum aus `<cid>.dat` fehlt) – die Web-Adresse
+    /// kann falsch sein. Solche Dateien werden standardmäßig lokal geöffnet.
+    var isGuess = false
 }
 
 /// Liest die Konfiguration des OneDrive-Sync-Clients und leitet daraus ab, welcher lokale Ordner
@@ -22,9 +25,9 @@ struct SyncRoot: Hashable {
 /// - Der in der .ini stehende lokale Pfad stimmt auf dem Mac nicht zuverlässig. Der echte Ordner in
 ///   ~/Library/CloudStorage wird über die versteckte Datei `.849C9593-…` und deren `guid` (= Sync-ID) gefunden.
 ///
-/// Nicht portiert ist das Lesen der binären `<cid>.dat` (Ordnerbaum). Dadurch werden
-/// `libraryFolder`-Einträge und Verknüpfungen („Zu Meine Dateien hinzufügen“) nur dann korrekt erkannt,
-/// wenn sie direkt auf oberster Ebene liegen.
+/// Nicht portiert ist das Lesen der binären `<cid>.dat` (Ordnerbaum). `libraryFolder`-Einträge und
+/// Verknüpfungen („Zu Meine Dateien hinzufügen“) werden daher geschätzt (Verknüpfungen per Namenssuche
+/// bis 3 Ebenen tief) und als `isGuess` markiert.
 enum OneDriveConfig {
     static let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     static let syncMarkerName = ".849C9593-D756-4E56-8D6E-42412F2A707B"
@@ -237,6 +240,9 @@ enum OneDriveConfig {
         let syncFind: String
         let isMain: Bool
         let source: String
+        var isGuess = false
+        /// Ordnernamen, nach denen unterhalb des Einhängepunkts gesucht wird, falls `locals` nicht existieren.
+        var searchNames: [String] = []
     }
 
     struct Detection {
@@ -293,10 +299,11 @@ enum OneDriveConfig {
                 guard let base = libWeb[libNr], !locRoot.isEmpty else { continue }
                 entries.append(Entry(account: name, locals: [locRoot], web: join(base, lastComponent(locRoot)),
                                      syncID: syncID, syncFind: locRoot, isMain: false,
-                                     source: "\(name): libraryFolder (Annahme: Ordner direkt in der Bibliothek)"))
+                                     source: "\(name): libraryFolder (Annahme: Ordner direkt in der Bibliothek)",
+                                     isGuess: true))
 
             case "AddedScope":
-                guard f.count > 11, let mainMount else { continue }
+                guard f.count > 11, let mainMount, !mainMount.isEmpty else { continue }
                 let siteID = f[7], webID = f[8], libID = f[9], lnkID = f[10]
                 let relPath = f[11].trimmingCharacters(in: .whitespaces)
                 let file = "ClientPolicy_\(libID)\(siteID)\(lnkID).ini"
@@ -312,7 +319,8 @@ enum OneDriveConfig {
                 guard !names.isEmpty else { continue }
                 entries.append(Entry(account: name, locals: names.map { join(mainMount, $0) }, web: web,
                                      syncID: mainSyncID, syncFind: mainMount, isMain: false,
-                                     source: "\(name): Verknüpfung in „Meine Dateien“ (Annahme: oberste Ebene)"))
+                                     source: "\(name): Verknüpfung in „Meine Dateien“ (Ordner über Namen gesucht)",
+                                     isGuess: true, searchNames: names))
 
             default:
                 break
@@ -371,7 +379,8 @@ enum OneDriveConfig {
                         entries.append(Entry(account: name, locals: [join(locRoot, folder)],
                                              web: join(join(webRoot, other), relPath),
                                              syncID: syncID, syncFind: locRoot, isMain: false,
-                                             source: "\(name): GroupFolders.ini (Annahme: oberste Ebene)"))
+                                             source: "\(name): GroupFolders.ini (Ordner über Namen gesucht)",
+                                             isGuess: true, searchNames: [folder]))
                     }
                     otherCID = nil
                 }
@@ -407,22 +416,28 @@ enum OneDriveConfig {
         for entry in entries {
             let real = syncDirs[entry.syncID.lowercased()]
             let find = trimSlash(entry.syncFind)
-            let candidates = entry.locals.map { raw -> String in
+            func translate(_ raw: String) -> String {
                 let local = trimSlash(raw)
                 guard let real, !find.isEmpty, local.hasPrefix(find) else { return local }
                 return real + local.dropFirst(find.count)
             }
-            guard let local = candidates.first(where: isDirectory) else {
+            let candidates = entry.locals.map(translate)
+            var found = candidates.first(where: isDirectory)
+            if found == nil, !entry.searchNames.isEmpty {
+                found = findFolder(named: entry.searchNames, under: translate(entry.syncFind))
+            }
+            guard let local = found else {
                 if entry.isMain {
                     unresolvedMain.append(entry)
                 } else {
-                    det.notes.append("Lokaler Ordner nicht gefunden (bitte manuell zuordnen): \(candidates.joined(separator: " | ")) → \(entry.web)")
+                    det.notes.append("Ordner nicht gefunden – Dateien darin bekommen evtl. eine falsche Adresse, bitte manuell zuordnen: \(candidates.joined(separator: " | ")) → \(entry.web)")
                 }
                 continue
             }
             guard used.insert(PathResolver.normalize(local)).inserted else { continue }
             if entry.isMain { resolvedMain.insert(entry.account) }
-            det.roots.append(SyncRoot(localPath: local, webURL: trimSlash(entry.web), source: entry.source))
+            det.roots.append(SyncRoot(localPath: local, webURL: trimSlash(entry.web), source: entry.source,
+                                      isGuess: entry.isGuess))
         }
 
         // Fallback für Hauptordner ohne auflösbare Sync-ID: über den Ordnernamen in ~/Library/CloudStorage.
@@ -444,12 +459,61 @@ enum OneDriveConfig {
             if let pick {
                 free.removeAll { $0 == pick }
                 used.insert(PathResolver.normalize(pick.path))
-                det.roots.append(SyncRoot(localPath: pick.path, webURL: trimSlash(entry.web), source: entry.source + " (Ordner über Namen zugeordnet)"))
+                // „OneDrive-Persönlich“ ist eindeutig; bei Geschäftskonten ist die Paarung nur plausibel.
+                det.roots.append(SyncRoot(localPath: pick.path, webURL: trimSlash(entry.web),
+                                          source: entry.source + " (Ordner über Namen zugeordnet)",
+                                          isGuess: entry.account != "Personal"))
             } else {
                 det.notes.append("\(entry.account): Hauptordner nicht gefunden (\(entry.locals.joined())) → \(entry.web). Bitte manuell zuordnen.")
             }
         }
         return det
+    }
+
+    /// Suchergebnisse (auch „nicht gefunden“) für 10 Minuten, weil das Auflisten von
+    /// File-Provider-Ordnern bei OneDrive Netzwerkzugriffe auslösen kann.
+    private static var searchCache: [String: (date: Date, result: String?)] = [:]
+
+    /// Sucht Ordner mit einem der Namen bis zu `depth` Ebenen unter `root` (flachste Ebene zuerst).
+    /// Nur ein eindeutiger Treffer zählt.
+    private static func findFolder(named names: [String], under root: String, depth: Int = 3) -> String? {
+        // Leerer/relativer Pfad würde relativ zum Arbeitsverzeichnis (oft „/“) aufgelöst.
+        guard root.hasPrefix("/"), root != "/" else { return nil }
+        let cacheKey = root + "\u{0}" + names.joined(separator: "\u{0}")
+        if let hit = searchCache[cacheKey], Date().timeIntervalSince(hit.date) < 600,
+           hit.result.map(isDirectory) ?? true {
+            return hit.result
+        }
+        let result = searchFolder(named: names, under: root, depth: depth)
+        searchCache[cacheKey] = (Date(), result)
+        return result
+    }
+
+    private static func searchFolder(named names: [String], under root: String, depth: Int) -> String? {
+        let wanted = Set(names.map { $0.precomposedStringWithCanonicalMapping.lowercased() })
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .isPackageKey]
+        var level = [URL(fileURLWithPath: root, isDirectory: true)]
+        for _ in 0..<depth {
+            var hits: [String] = []
+            var next: [URL] = []
+            for dir in level {
+                let items = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: Array(keys),
+                                                         options: [.skipsHiddenFiles])) ?? []
+                for item in items {
+                    // Pakete (z. B. .app, .numbers) zählen als Ordner, sind aber keine.
+                    guard let v = try? item.resourceValues(forKeys: keys),
+                          v.isDirectory == true, v.isPackage != true else { continue }
+                    if wanted.contains(item.lastPathComponent.precomposedStringWithCanonicalMapping.lowercased()) {
+                        hits.append(item.path)
+                    }
+                    next.append(item)
+                }
+            }
+            if !hits.isEmpty { return hits.count == 1 ? hits[0] : nil }
+            guard next.count <= 2000 else { return nil }
+            level = next
+        }
+        return nil
     }
 
     private static let personalSuffixes: Set<String> = ["", "persönlich", "personal", "personnel", "personale", "persoonlijk", "personlig"]
@@ -503,7 +567,10 @@ enum OneDriveConfig {
         det.notes.forEach { out.append("  \($0)") }
         out.append("")
         out.append("== Automatisch erkannte Zuordnungen ==")
-        det.roots.forEach { out.append("  \($0.localPath)\n    → \($0.webURL)\n    (\($0.source))") }
+        det.roots.forEach {
+            out.append("  \($0.localPath)\($0.isGuess ? "  [GESCHÄTZT]" : "")\n    → \($0.webURL)\n    (\($0.source))")
+        }
+        out.append("  Geschätzte Zuordnungen online öffnen: \(Settings.useGuessedMappings ? "ja" : "nein")")
         out.append("")
         out.append("== Manuelle Zuordnungen ==")
         Settings.manualMappings.forEach { out.append("  \($0.localPath)\n    → \($0.webURL)") }

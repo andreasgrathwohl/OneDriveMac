@@ -15,10 +15,6 @@ enum PathResolver {
         return manual + OneDriveConfig.cachedRoots()
     }
 
-    static func webURL(for file: URL) -> String? {
-        resolve(file, roots: allRoots())?.url
-    }
-
     /// Längster passender Ordner gewinnt; bei gleicher Länge hat die manuelle Zuordnung Vorrang.
     static func resolve(_ file: URL, roots: [SyncRoot]) -> (url: String, root: SyncRoot)? {
         let real = file.standardizedFileURL.resolvingSymlinksInPath()

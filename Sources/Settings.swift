@@ -34,6 +34,12 @@ enum Settings {
         set { defaults.set(newValue, forKey: "SyncWaitSeconds") }
     }
 
+    /// Auch geschätzte Zuordnungen online öffnen (Risiko: falsche Web-Adresse). Standard: aus.
+    static var useGuessedMappings: Bool {
+        get { defaults.bool(forKey: "UseGuessedMappings") }
+        set { defaults.set(newValue, forKey: "UseGuessedMappings") }
+    }
+
     static var manualMappings: [ManualMapping] {
         get {
             let raw = defaults.array(forKey: "ManualMappings") as? [[String: Any]] ?? []

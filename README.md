@@ -292,6 +292,33 @@ aus:
   `.849C9593-D756-4E56-8D6E-42412F2A707B` (Sync-ID) in `~/Library/CloudStorage`
   gefunden; Fallback: Abgleich über den Ordnernamen.
 
+#### Geschätzte Zuordnungen
+
+Zuordnungen, deren lokaler Ordner oder Web-Pfad nur geschätzt werden können, sind
+im Einstellungsfenster mit der Kennzeichnung „geschätzt” gekennzeichnet. Dies betrifft
+synchronisierte Unterordner einer Bibliothek (`libraryFolder`), Verknüpfungen in
+„Meine Dateien” (`AddedScope`), gemeinsame Ordner von persönlichen Konten
+(`GroupFolders.ini`), sowie den Hauptordner eines Geschäftskontos, der nur über seinen
+Ordnernamen zugeordnet werden konnte (beim privaten Konto ist „OneDrive-Persönlich“
+eindeutig und gilt nicht als geschätzt). Grund: Die binäre Ordnerstruktur in `<cid>.dat` wird nicht
+ausgewertet.
+
+Dateien in solchen Ordnern werden standardmäßig **lokal** geöffnet (kein AutoSpeichern),
+mit einem Protokolleintrag „Zuordnung … ist nur geschätzt … → lokal”, der die
+vermutete Adresse enthält. So wird sichergestellt, dass die App niemals eine möglicherweise
+falsche Web-Adresse öffnet, was zu „Datei nicht gefunden”-Fehlern in Word führen würde.
+
+Im Einstellungsfenster erscheint bei vorhandenen geschätzten Zuordnungen zusätzlich ein
+Toggle „Geschätzte Zuordnungen trotzdem online öffnen”. **Empfehlung**: Statt diesen
+Schalter zu nutzen, ist es sicherer, für solche Ordner eine manuelle Zuordnung
+hinzuzufügen (manuelle Zuordnungen haben immer Vorrang).
+
+Verknüpfungs- und gemeinsame Ordner, die nicht auf der obersten Ebene liegen, werden
+bis zu 3 Ebenen tief nach Name gesucht; nur ein eindeutiger Treffer wird verwendet.
+
+Im Diagnosebericht (Kommandozeile `--diagnose`) sind solche Einträge mit `[GESCHÄTZT]`
+gekennzeichnet; `--resolve` gibt zusätzlich eine Warnzeile aus.
+
 Da das Ganze heuristisch ist, kann die Erkennung im Einzelfall danebenliegen oder
 einen Ordner offenlassen – dafür gibt es die manuelle Zuordnung.
 
@@ -322,8 +349,9 @@ daher zentral per Konfigurationsprofil vorgeben. Verwendete Schlüssel:
 |---------------------|--------------------|-----------------------------------------------------------|----------|
 | `Enabled`           | Bool               | Online-Öffnen aktiviert/deaktiviert                      | `true`   |
 | `SyncWaitSeconds`    | Integer            | Wartezeit auf ausstehenden Upload in Sekunden             | `15`     |
-| `ManualMappings`     | Array von Dictionaries, je `{"localPath": "...", "webURL": "..."}` | manuelle Ordner-Zuordnungen | `[]` (leer) |
-| `KeepDefaultHandler` | Bool               | Überwachung der Standard-App-Zuordnung (siehe „Schutz vor Office-Updates“) ein-/ausschalten | `false` |
+| `ManualMappings`     | Array von Dictionaries, je `{“localPath”: “...”, “webURL”: “...”}` | manuelle Ordner-Zuordnungen | `[]` (leer) |
+| `KeepDefaultHandler` | Bool               | Überwachung der Standard-App-Zuordnung (siehe „Schutz vor Office-Updates”) ein-/ausschalten | `false` |
+| `UseGuessedMappings` | Bool               | Geschätzte Zuordnungen trotzdem online öffnen           | `false`  |
 
 Daneben verwendet die App noch `OfficeVersions` und `LoginItemInitialized` in
 `UserDefaults` – das sind rein interne Merker (zuletzt erkannte Office-Versionen bzw.
@@ -429,11 +457,17 @@ für den produktiven Rollout verwendet werden.
 - Das OneDrive-Konfigurationsformat ist von Microsoft nicht dokumentiert. Die
   automatische Zuordnung arbeitet heuristisch und kann falschliegen oder einen
   Ordner nicht erkennen – in dem Fall hilft eine manuelle Zuordnung.
-- Synchronisierte Unterordner einer Bibliothek (`libraryFolder`) und Verknüpfungen,
+- Synchronisierte Unterordner einer Bibliothek (`libraryFolder`), Verknüpfungen
   die zu „Meine Dateien” hinzugefügt wurden (`AddedScope`), sowie gemeinsame Ordner
   von persönlichen Konten werden nur dann korrekt erkannt, wenn sie auf der obersten
-  Ebene liegen. Andernfalls ist eine manuelle Zuordnung nötig (die binäre Ordnerstruktur
-  in `<cid>.dat` wird nicht ausgewertet).
+  Ebene liegen oder eindeutig bis zu 3 Ebenen tief nach Name gefunden werden. Andernfalls
+  werden diese Zuordnungen als „geschätzt” gekennzeichnet und Dateien darin lokal geöffnet.
+  Eine manuelle Zuordnung oder aktivierung von „Geschätzte Zuordnungen trotzdem online
+  öffnen” ist dann nötig (die binäre Ordnerstruktur in `<cid>.dat` wird nicht ausgewertet).
+- Kann ein Verknüpfungs- oder Freigabordner überhaupt nicht gefunden werden (z. B.
+  weil er umbenannt wurde), fallen Dateien darin unter den OneDrive-Hauptordner und
+  erhalten möglicherweise eine falsche Adresse. Im Einstellungsfenster wird in diesem
+  Fall ein Hinweis „Ordner nicht gefunden … bitte manuell zuordnen” angezeigt.
 - Alte Binärformate (`.doc`, `.xls`, `.ppt`) werden nicht behandelt – sie
   unterstützen ohnehin kein AutoSpeichern, es besteht also kein Nachteil.
 - Die Prüfung des Synchronisierungsstatus stützt sich auf die vom File-Provider-
