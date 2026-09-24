@@ -3,14 +3,21 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusItem: NSStatusItem?
+    private var status: StatusController?
     private var settingsWindow: NSWindow?
-    private lazy var model = SettingsModel()
+    private var logWindow: NSWindow?
+    private lazy var model = SettingsModel(openLog: { [weak self] in self?.showLog() })
     private var receivedFiles = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupStatusItem()
+        status = StatusController(actions: .init(
+            settings: { [weak self] in self?.showSettings() },
+            log: { [weak self] in self?.showLog() },
+            diagnostics: { [weak self] in self?.model.copyDiagnostics() }))
         Log.info("Gestartet: \(Bundle.main.bundlePath)")
+
+        LoginItem.enableOnFirstLaunch()
+        HandlerGuard.shared.start()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self, !self.receivedFiles, !Settings.didShowOnboarding else { return }
@@ -34,45 +41,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    private func setupStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "icloud.and.arrow.up", accessibilityDescription: "OneDrive Opener")
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Einstellungen …", action: #selector(showSettings), keyEquivalent: ",").target = self
-        menu.addItem(withTitle: "Diagnose in Zwischenablage kopieren", action: #selector(copyDiagnostics), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Protokoll anzeigen", action: #selector(showLog), keyEquivalent: "").target = self
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "OneDrive Opener beenden", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        item.menu = menu
-        statusItem = item
-    }
-
-    @objc func showSettings() {
+    func showSettings() {
         if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 680),
-                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                                  backing: .buffered, defer: false)
-            window.title = "OneDrive Opener"
-            window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: SettingsView(model: model))
-            window.setContentSize(NSSize(width: 720, height: 680))
-            window.center()
-            settingsWindow = window
+            settingsWindow = makeWindow(title: "OneDrive Opener", size: NSSize(width: 720, height: 720),
+                                        content: NSHostingController(rootView: SettingsView(model: model)))
         }
         model.refresh()
-        NSApp.activate(ignoringOtherApps: true)
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        bringToFront(settingsWindow)
     }
 
-    @objc func copyDiagnostics() {
-        model.copyDiagnostics()
-    }
-
-    @objc func showLog() {
-        let url = Log.fileURL
-        if !FileManager.default.fileExists(atPath: url.path) {
-            FileManager.default.createFile(atPath: url.path, contents: nil)
+    func showLog() {
+        if logWindow == nil {
+            logWindow = makeWindow(title: "OneDrive Opener – Protokoll", size: NSSize(width: 860, height: 520),
+                                   content: NSHostingController(rootView: LogView(store: LogStore.shared)))
         }
-        NSWorkspace.shared.open(url)
+        bringToFront(logWindow)
+    }
+
+    private func makeWindow(title: String, size: NSSize, content: NSViewController) -> NSWindow {
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = title
+        window.isReleasedWhenClosed = false
+        window.contentViewController = content
+        window.setContentSize(size)
+        window.center()
+        return window
+    }
+
+    private func bringToFront(_ window: NSWindow?) {
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
     }
 }

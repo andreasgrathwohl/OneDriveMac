@@ -43,6 +43,131 @@ AutoSpeichern ist aktiv.
 Alte Binärformate (`.doc`, `.xls`, `.ppt`) werden bewusst nicht beansprucht – sie
 unterstützen ohnehin kein AutoSpeichern.
 
+## Installation
+
+Das Repository ist **privat**: https://github.com/andreasgrathwohl/OneDriveMac
+
+### Schritt 1: Terminal öffnen
+
+Programme → Dienstprogramme → Terminal.
+
+### Schritt 2: Xcode Command Line Tools (nur beim ersten Mal nötig)
+
+Im Terminal:
+
+```sh
+xcode-select --install
+```
+
+Das Installationsfenster öffnet sich – warten, bis die Installation abgeschlossen ist
+(je nach Internetverbindung einige Minuten). Fehlen die Command Line Tools noch, stößt
+auch `install-mac.sh` (Schritt 4) diesen Dialog automatisch an, bricht danach aber ab;
+das Skript muss dann nach Abschluss der Installation erneut gestartet werden.
+
+### Schritt 3: Anmeldung bei GitHub
+
+Da das Repository privat ist, fragt `git` beim Klonen (Schritt 4) nach Benutzername
+und Passwort. Als Passwort dient dabei kein normales GitHub-Passwort, sondern ein
+**Personal Access Token**:
+
+1. Auf github.com anmelden → **Settings** → **Developer settings** →
+   **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+2. Als Repository-Zugriff dieses Repository (`andreasgrathwohl/OneDriveMac`) auswählen.
+3. Unter „Repository permissions“ **Contents: Read-only** setzen – mehr wird nicht
+   benötigt.
+4. Token erzeugen und den angezeigten Wert kopieren (er wird nur einmal angezeigt).
+
+Bei der Abfrage von `git` dann eingeben:
+
+- **Username**: GitHub-Benutzername
+- **Password**: das kopierte Token
+
+Die macOS-Schlüsselbundverwaltung merkt sich diese Anmeldedaten nach dem ersten
+erfolgreichen Zugriff – bei künftigen Updates (siehe unten) erscheint die Abfrage
+in der Regel nicht mehr.
+
+### Schritt 4: Installieren
+
+```bash
+git clone https://github.com/andreasgrathwohl/OneDriveMac.git ~/Developer/OneDriveMac && bash ~/Developer/OneDriveMac/install-mac.sh
+```
+
+Das lädt den Code nach `~/Developer/OneDriveMac`, baut daraus ein Universal-App-Bundle
+(Apple Silicon + Intel) und kopiert es nach `/Applications`. Ist `/Applications` für
+den angemeldeten Benutzer nicht beschreibbar, fragt macOS zwischendurch nach dem
+**Administrator-Passwort** (sudo). Am Ende startet die App automatisch, und das Symbol
+erscheint oben rechts in der Menüleiste.
+
+### Schritt 5: Einrichtung
+
+Auf das neue Menüleisten-Symbol klicken → **Einstellungen …** → Button
+**„OneDrive Opener als Standard festlegen“**. Das macht OneDrive Opener zur
+Standard-App für Doppelklick bei Word-/Excel-/PowerPoint-Dateien und schaltet
+gleichzeitig die Überwachung der Zuordnung ein (siehe „Schutz vor Office-Updates“
+weiter unten). macOS kann dabei einmalig eine Bestätigung verlangen.
+
+Zusätzlich prüfen, dass **„Bei der Anmeldung automatisch starten (empfohlen)“**
+aktiviert ist. Bei einer frischen Installation aus `/Applications` wird das beim
+ersten Start automatisch eingeschaltet; auf macOS 13 und neuer erscheint der Eintrag
+zusätzlich unter **Systemeinstellungen → Allgemein → Anmeldeobjekte**.
+
+### Schritt 6: Test
+
+Eine `.docx`-Datei aus dem OneDrive-Ordner im Finder doppelklicken. Word sollte die
+Datei öffnen und in der Titelleiste den Dateinamen anzeigen (nicht „Auf meinem Mac
+gespeichert“), AutoSpeichern ist eingeschaltet. Im Zweifel über das Menüleisten-Symbol
+→ „Protokoll anzeigen …“ nachsehen, ob die Datei online geöffnet wurde.
+
+### Aktualisieren
+
+```sh
+bash ~/Developer/OneDriveMac/install-mac.sh
+```
+
+Aktualisiert das lokale Repository (`git pull`) und baut/installiert die App neu.
+Läuft die App gerade, wird sie dafür kurz beendet und danach neu gestartet.
+
+### Manueller Build mit eigener Signatur (fortgeschritten)
+
+`install-mac.sh` baut mit einer Ad-hoc-Signatur. Für eine Verteilung an mehrere
+MacBooks ohne Gatekeeper-Warnung empfiehlt sich ein signierter Build direkt mit
+`build.sh` (Details zu Signierung/Notarisierung siehe „Signierung & Notarisierung“
+weiter unten):
+
+```sh
+cd ~/Developer/OneDriveMac
+BUNDLE_ID=de.firma.onedriveopener \
+SIGN_IDENTITY="Developer ID Application: Firma GmbH (TEAMID)" \
+./build.sh install
+```
+
+| Variable | Bedeutung | Standard |
+|---|---|---|
+| `BUNDLE_ID` | Bundle-Identifier der App (auch relevant für MDM-Einstellungen, s. u.) | `de.onedriveopener.app` |
+| `SIGN_IDENTITY` | Signatur-Identität, z. B. `"Developer ID Application: Firma GmbH (TEAMID)"` | Ad-hoc-Signatur (`-`) |
+
+Wichtig: Die App muss unter `/Applications` liegen, damit macOS (Launch Services) sie
+zuverlässig als Standard-App bzw. unter „Öffnen mit“ anbietet. `./build.sh install`
+erledigt das automatisch (inkl. Registrierung über `lsregister`); bei manueller
+Installation die App entsprechend nach `/Applications` kopieren.
+
+### Deinstallation
+
+1. Im Einstellungsfenster **„Zurück auf Office“** klicken – das trägt Word, Excel und
+   PowerPoint wieder als Standard-App für Doppelklick ein und schaltet die Überwachung
+   der Standard-App-Zuordnung aus.
+2. OneDrive Opener über das Menü **„OneDrive Opener beenden“** beenden.
+3. Die App aus `/Applications` löschen (`/Applications/OneDrive Opener.app`).
+4. Optional aufräumen:
+
+   ```sh
+   rm -rf ~/Developer/OneDriveMac ~/Library/Logs/OneDriveOpener
+   defaults delete de.onedriveopener.app
+   ```
+
+   (`de.onedriveopener.app` ist die Standard-Bundle-ID aus `build.sh`; wurde mit einer
+   eigenen `BUNDLE_ID` gebaut, stattdessen diesen Wert verwenden.)
+
 ## Voraussetzungen
 
 - macOS 12 (Monterey) oder neuer
@@ -51,36 +176,6 @@ unterstützen ohnehin kein AutoSpeichern.
   synchronisiert wird
 - Zum Bauen: Xcode oder die Xcode Command Line Tools
   (`xcode-select --install`)
-
-## Bauen & Installieren
-
-Im Projektordner:
-
-```sh
-./build.sh            # baut build/"OneDrive Opener.app" (Universal: Apple Silicon + Intel)
-./build.sh install     # baut zusätzlich und kopiert nach /Applications, registriert bei macOS, startet die App
-```
-
-Der Build erzeugt ein Universal-Binary (arm64 + x86_64) mit `swiftc` und signiert es
-anschließend. Zwei Umgebungsvariablen steuern das:
-
-| Variable         | Bedeutung                                                                 | Standard |
-|-------------------|---------------------------------------------------------------------------|----------|
-| `BUNDLE_ID`       | Bundle-Identifier der App (auch relevant für MDM-Einstellungen, s. u.)   | `de.onedriveopener.app` |
-| `SIGN_IDENTITY`   | Signatur-Identität, z. B. `"Developer ID Application: Firma GmbH (TEAMID)"` | Ad-hoc-Signatur (`-`) |
-
-Beispiel für eine signierte Version zur Verteilung im Unternehmen:
-
-```sh
-BUNDLE_ID=de.firma.onedriveopener \
-SIGN_IDENTITY="Developer ID Application: Firma GmbH (TEAMID)" \
-./build.sh install
-```
-
-Wichtig: Die App muss unter `/Applications` liegen, damit macOS (Launch Services)
-sie zuverlässig als Standard-App bzw. unter „Öffnen mit“ anbietet. `./build.sh install`
-erledigt das automatisch (inkl. Registrierung über `lsregister`); bei manueller
-Installation die App entsprechend nach `/Applications` kopieren.
 
 ## Einrichtung
 
@@ -105,6 +200,87 @@ Im unteren Teil des Fensters zeigt „Automatisch erkannte OneDrive-Ordner“ di
 gefundenen Zuordnungen sowie Hinweise, falls etwas nicht eindeutig erkannt wurde;
 „Neu einlesen“ aktualisiert die Anzeige, „Diagnose kopieren“ erstellt den
 Diagnosebericht (siehe Fehlersuche).
+
+## Menüleisten-Symbol & Protokoll
+
+### Symbol
+
+Das Symbol oben rechts in der Menüleiste zeigt den aktuellen Zustand an (Tooltip beim
+Darüberfahren mit der Maus zeigt denselben Status als Text):
+
+| Symbol (SF-Symbol-Name) | Bedeutung |
+|---|---|
+| `icloud.and.arrow.up` | Aktiv – Online-Öffnen eingeschaltet, Standard-App-Zuordnung in Ordnung |
+| `icloud.slash` | Online-Öffnen ist deaktiviert (Hauptschalter aus) |
+| `exclamationmark.icloud` | Standard-App-Zuordnung wurde verloren und konnte nicht automatisch wiederhergestellt werden – Handlungsbedarf |
+
+### Menü
+
+Ein Klick auf das Symbol zeigt:
+
+- Versionsnummer und Status von „Online-Öffnen“
+- Anzahl der Dateitypen, für die OneDrive Opener aktuell Standard-App ist
+  (z. B. „6 von 6 Dateitypen“), mit Zusatz „überwacht“, wenn die Zuordnung aktiv
+  überwacht wird
+- bei einem Problem: eine Warnzeile mit der Beschreibung
+- Status der Standard-App-Überwachung (letzte Prüfung, Ergebnis)
+- Anzahl erkannter OneDrive-Ordner
+- die zuletzt geöffnete Datei (Name, Modus, Uhrzeit)
+- Schalter „Online-Öffnen aktiv“ und „Bei Anmeldung starten“
+- „Standard-App jetzt prüfen“ (löst eine sofortige Prüfung/Wiederherstellung aus)
+- „Protokoll anzeigen …“, „Einstellungen …“, „Diagnose in Zwischenablage kopieren“
+- „OneDrive Opener beenden“
+
+### Protokollfenster
+
+Menü → **„Protokoll anzeigen …“** öffnet ein Fenster mit den Protokollzeilen, das sich
+laufend aktualisiert (live). Funktionen:
+
+- **Filtern …**: Textfilter über die angezeigten Zeilen
+- **Nur Fehler**: zeigt nur Zeilen mit `[FEHLER]`
+- **Kopieren**: kopiert die aktuell angezeigten (gefilterten) Zeilen in die Zwischenablage
+- **Im Finder zeigen**: öffnet den Ordner mit der Log-Datei im Finder
+- **Leeren**: löscht das Protokoll (Fenster und Datei)
+
+Die Protokolldatei liegt unter `~/Library/Logs/OneDriveOpener/OneDriveOpener.log`.
+Ab 2 MB wird sie automatisch nach `OneDriveOpener.1.log` im selben Ordner rotiert,
+damit sie nicht unbegrenzt wächst.
+
+## Schutz vor Office-Updates
+
+Microsoft-Office-Updates (und teils schon ein einfacher Neustart von Word, Excel oder
+PowerPoint) können die Standard-App-Zuordnung für Doppelklick auf Office zurücksetzen.
+Ist die Überwachung eingeschaltet (Einstellungen → „Zuordnung überwachen und nach
+Office-Updates automatisch wiederherstellen“, bzw. `KeepDefaultHandler`), erkennt
+OneDrive Opener das automatisch und stellt sich selbst wieder als Standard-App her –
+ohne manuellen Eingriff. Die Überwachung wird zusammen mit „OneDrive Opener als
+Standard festlegen“ eingeschaltet und mit „Zurück auf Office“ wieder ausgeschaltet.
+
+Geprüft wird:
+
+- alle 2 Minuten im Hintergrund,
+- beim Start oder Beenden von Word, Excel, PowerPoint, Microsoft AutoUpdate oder dem
+  macOS-Installer,
+- nach dem Aufwachen aus dem Ruhezustand.
+
+Bei jeder Prüfung vergleicht die App außerdem die Versionsnummern von Word, Excel und
+PowerPoint mit den zuletzt gespeicherten Werten. Bei einer Änderung wird
+„Office-Update erkannt: …“ ins Protokoll geschrieben und OneDrive Opener meldet sich
+sicherheitshalber erneut bei Launch Services an.
+
+Ist die Standard-App-Zuordnung verlorengegangen, versucht die App sofort, sie
+wiederherzustellen. Gelingt das nicht (z. B. weil macOS die Änderung ablehnt), wechselt
+das Menüleisten-Symbol auf die Warnung (`exclamationmark.icloud`). Bei den oben
+genannten Ereignissen wird die Wiederherstellung dann bei jedem Ereignis erneut
+versucht; die reguläre Zwei-Minuten-Prüfung wartet nach einem Fehlschlag dagegen erst
+30 Minuten, bevor sie es selbst erneut versucht, damit macOS nicht ständig mit
+Rückfragen aufwartet.
+
+**Hinweis**: Solange die Überwachung eingeschaltet ist, macht sie eine manuelle
+Änderung der Standard-App im Finder (Datei markieren → „Informationen“ → „Öffnen mit“
+→ „Alle ändern …“) automatisch wieder rückgängig. Um Word/Excel/PowerPoint dauerhaft
+wieder als Standard-App zu setzen, in den Einstellungen zuerst die Überwachung
+ausschalten oder „Zurück auf Office“ verwenden.
 
 ## Zuordnung lokaler Ordner → Web-Adresse
 
@@ -163,6 +339,12 @@ daher zentral per Konfigurationsprofil vorgeben. Verwendete Schlüssel:
 | `Enabled`           | Bool               | Online-Öffnen aktiviert/deaktiviert                      | `true`   |
 | `SyncWaitSeconds`    | Integer            | Wartezeit auf ausstehenden Upload in Sekunden             | `15`     |
 | `ManualMappings`     | Array von Dictionaries, je `{"localPath": "...", "webURL": "..."}` | manuelle Ordner-Zuordnungen | `[]` (leer) |
+| `KeepDefaultHandler` | Bool               | Überwachung der Standard-App-Zuordnung (siehe „Schutz vor Office-Updates“) ein-/ausschalten | `false` |
+
+Daneben verwendet die App noch `OfficeVersions` und `LoginItemInitialized` in
+`UserDefaults` – das sind rein interne Merker (zuletzt erkannte Office-Versionen bzw.
+ob der Autostart beim ersten Start schon gesetzt wurde) und sollten nicht per MDM
+vorbelegt werden.
 
 Lokal testen mit `defaults`:
 
@@ -276,10 +458,3 @@ für den produktiven Rollout verwendet werden.
 - Beim Auslesen der Konfiguration der App-Store-Version von OneDrive (Zugriff auf
   deren sandboxten Container) kann macOS eine Berechtigungsabfrage einblenden, die
   bestätigt werden muss.
-
-## Deinstallation
-
-1. Im Einstellungsfenster **„Zurück auf Office“** klicken, damit Word, Excel und
-   PowerPoint wieder als Standard-App für Doppelklick eingetragen sind.
-2. OneDrive Opener über das Menü **„OneDrive Opener beenden“** beenden.
-3. Die App aus `/Applications` löschen (`/Applications/OneDrive Opener.app`).

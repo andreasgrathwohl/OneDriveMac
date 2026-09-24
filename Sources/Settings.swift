@@ -42,6 +42,23 @@ enum Settings {
         set { defaults.set(newValue.map(\.dictionary), forKey: "ManualMappings") }
     }
 
+    /// Standard-App-Zuordnung überwachen und nach Office-Updates wiederherstellen.
+    /// Wird mit „Als Standard festlegen“ eingeschaltet und mit „Zurück auf Office“ ausgeschaltet.
+    static var keepDefault: Bool {
+        get { defaults.bool(forKey: "KeepDefaultHandler") }
+        set { defaults.set(newValue, forKey: "KeepDefaultHandler") }
+    }
+
+    static var officeVersions: [String: String] {
+        get { defaults.dictionary(forKey: "OfficeVersions") as? [String: String] ?? [:] }
+        set { defaults.set(newValue, forKey: "OfficeVersions") }
+    }
+
+    static var loginItemInitialized: Bool {
+        get { defaults.bool(forKey: "LoginItemInitialized") }
+        set { defaults.set(newValue, forKey: "LoginItemInitialized") }
+    }
+
     static var didShowOnboarding: Bool {
         get { defaults.bool(forKey: "DidShowOnboarding") }
         set { defaults.set(newValue, forKey: "DidShowOnboarding") }

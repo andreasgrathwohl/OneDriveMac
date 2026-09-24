@@ -57,7 +57,10 @@ enum FileOpener {
         do {
             try process.run()
             process.waitUntilExit()
-            if process.terminationStatus == 0 { return }
+            if process.terminationStatus == 0 {
+                AppState.recordOpen(file, mode: "online")
+                return
+            }
             Log.error("open beendet mit Status \(process.terminationStatus)")
         } catch {
             Log.error("open fehlgeschlagen: \(error.localizedDescription)")
@@ -70,6 +73,8 @@ enum FileOpener {
             showError("Microsoft \(app.displayName) wurde auf diesem Mac nicht gefunden.")
             return
         }
+        Log.info("Öffne lokal mit \(app.displayName): \(file.path)")
+        AppState.recordOpen(file, mode: "lokal")
         NSWorkspace.shared.open([file], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
             if let error { Log.error("Lokales Öffnen fehlgeschlagen: \(error.localizedDescription)") }
         }

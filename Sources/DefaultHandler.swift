@@ -30,10 +30,10 @@ enum DefaultHandler {
         }
     }
 
-    static func setAsDefault() async -> [String] {
+    static func setAsDefault(extensions: Set<String>? = nil) async -> [String] {
         var errors: [String] = []
         let me = Bundle.main.bundleURL
-        for e in entries {
+        for e in entries where extensions?.contains(e.ext) ?? true {
             do {
                 try await NSWorkspace.shared.setDefaultApplication(at: me, toOpen: e.type)
             } catch {

@@ -6,6 +6,7 @@ enum Main {
     static func main() {
         if CLI.run() { exit(0) }
 
+        _ = LogStore.shared
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
