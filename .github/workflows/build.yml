@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift-Version
+        run: xcrun swiftc --version
+
+      - name: App bauen
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
+          bash build.sh
+
+      - name: Selbsttest (Diagnose über die Kommandozeile)
+        run: '"build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --diagnose'
+
+      - name: ZIP erstellen
+        run: |
+          NAME="OneDriveOpener-${GITHUB_REF_NAME#v}"
+          [[ "$GITHUB_REF_TYPE" == "tag" ]] || NAME="OneDriveOpener-${GITHUB_SHA::7}"
+          ditto -c -k --keepParent "build/OneDrive Opener.app" "build/$NAME.zip"
+          echo "ZIP=build/$NAME.zip" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OneDriveOpener
+          path: ${{ env.ZIP }}
+
+      - name: Release veröffentlichen
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ZIP" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$ZIP" --title "OneDrive Opener ${GITHUB_REF_NAME#v}" --generate-notes
+          fi

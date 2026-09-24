@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 APP_NAME="OneDrive Opener"
 EXEC="OneDriveOpener"
 BUNDLE_ID="${BUNDLE_ID:-de.onedriveopener.app}"
-VERSION="1.0.0"
+VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="$(date +%Y%m%d%H%M)"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
