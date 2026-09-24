@@ -43,12 +43,12 @@ enum FileOpener {
 
             switch state {
             case .synced, .unknown:
-                launchCloud(web, app: app, fallback: file)
+                await launchCloud(web, app: app, fallback: file)
                 return
             case .pending, .conflict:
                 switch askWhatToDo(file, conflict: state == .conflict) {
                 case .local: openLocally(file, app); return
-                case .online: launchCloud(web, app: app, fallback: file); return
+                case .online: await launchCloud(web, app: app, fallback: file); return
                 case .wait: continue
                 case .cancel: return
                 }
@@ -56,7 +56,9 @@ enum FileOpener {
         }
     }
 
-    static func launchCloud(_ webURL: String, app: OfficeApp, fallback file: URL) {
+    static func launchCloud(_ webURL: String, app: OfficeApp, fallback file: URL) async {
+        // Beim Kaltstart verwirft Office eine zu früh zugestellte URL: erst starten, dann übergeben.
+        await ensureRunning(app)
         let uri = "\(app.scheme):ofe|u|\(webURL)"
         Log.info("Öffne online: \(uri)")
         let process = Process()
@@ -74,6 +76,32 @@ enum FileOpener {
             Log.error("open fehlgeschlagen: \(error.localizedDescription)")
         }
         openLocally(file, app)
+    }
+
+    private static func runningInstance(_ app: OfficeApp) -> NSRunningApplication? {
+        NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).first { !$0.isTerminated }
+    }
+
+    /// Startet die Office-App, falls nötig, und wartet, bis sie Dokumente annehmen kann.
+    private static func ensureRunning(_ app: OfficeApp) async {
+        if let running = runningInstance(app), running.isFinishedLaunching { return }
+        waitingPanel.show("\(app.displayName) wird gestartet …")
+        defer { waitingPanel.hide() }
+        if runningInstance(app) == nil {
+            guard let appURL = app.applicationURL else { return }
+            Log.info("\(app.displayName) läuft noch nicht – wird zuerst gestartet")
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
+        }
+        let start = Date()
+        while Date().timeIntervalSince(start) < 30 {
+            if let running = runningInstance(app), running.isFinishedLaunching { break }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        // Office meldet „fertig“, bevor Anmeldung und Startfenster bereit sind.
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        Log.info("\(app.displayName) bereit nach \(String(format: "%.1f", Date().timeIntervalSince(start))) s")
     }
 
     static func openLocally(_ file: URL, _ app: OfficeApp) {

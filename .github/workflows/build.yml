@@ -34,7 +34,7 @@ jobs:
           ICNS="build/OneDrive Opener.app/Contents/Resources/AppIcon.icns"
           if [[ -f "$ICNS" ]]; then sips -s format png -Z 512 "$ICNS" --out build/screenshots/app-icon.png; fi
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         continue-on-error: true
         with:
           name: Screenshots
@@ -47,7 +47,7 @@ jobs:
           ditto -c -k --keepParent "build/OneDrive Opener.app" "build/$NAME.zip"
           echo "ZIP=build/$NAME.zip" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: OneDriveOpener
           path: ${{ env.ZIP }}
