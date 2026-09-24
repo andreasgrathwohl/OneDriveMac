@@ -97,7 +97,7 @@ enum FolderInfo {
         if host.hasSuffix("-my.sharepoint.com") { return "Eigenes OneDrive (Arbeit oder Schule)" }
         let parts = url.pathComponents.filter { $0 != "/" }.map { $0.removingPercentEncoding ?? $0 }
         if let i = parts.firstIndex(where: { $0 == "sites" || $0 == "teams" }), i + 1 < parts.count {
-            let library = parts.count > i + 2 ? " · \(parts[i + 2...].joined(separator: " › "))" : ""
+            let library = parts.count > i + 2 ? " · \(parts[(i + 2)...].joined(separator: " › "))" : ""
             return "SharePoint: \(parts[i + 1])\(library)"
         }
         return "SharePoint"
