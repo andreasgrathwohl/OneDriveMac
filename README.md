@@ -45,7 +45,7 @@ unterstützen ohnehin kein AutoSpeichern.
 
 ## Installation
 
-Das Repository ist **privat**: https://github.com/andreasgrathwohl/OneDriveMac
+Repository: https://github.com/andreasgrathwohl/OneDriveMac (öffentlich, keine Anmeldung nötig)
 
 ### Schritt 1: Terminal öffnen
 
@@ -61,32 +61,16 @@ xcode-select --install
 
 Das Installationsfenster öffnet sich – warten, bis die Installation abgeschlossen ist
 (je nach Internetverbindung einige Minuten). Fehlen die Command Line Tools noch, stößt
-auch `install-mac.sh` (Schritt 4) diesen Dialog automatisch an, bricht danach aber ab;
+auch `install-mac.sh` (Schritt 3) diesen Dialog automatisch an, bricht danach aber ab;
 das Skript muss dann nach Abschluss der Installation erneut gestartet werden.
 
-### Schritt 3: Anmeldung bei GitHub
+### Schritt 3: Installieren
 
-Da das Repository privat ist, fragt `git` beim Klonen (Schritt 4) nach Benutzername
-und Passwort. Als Passwort dient dabei kein normales GitHub-Passwort, sondern ein
-**Personal Access Token**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/andreasgrathwohl/OneDriveMac/main/install-mac.sh | bash -s -- https://github.com/andreasgrathwohl/OneDriveMac.git
+```
 
-1. Auf github.com anmelden → **Settings** → **Developer settings** →
-   **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
-2. Als Repository-Zugriff dieses Repository (`andreasgrathwohl/OneDriveMac`) auswählen.
-3. Unter „Repository permissions“ **Contents: Read-only** setzen – mehr wird nicht
-   benötigt.
-4. Token erzeugen und den angezeigten Wert kopieren (er wird nur einmal angezeigt).
-
-Bei der Abfrage von `git` dann eingeben:
-
-- **Username**: GitHub-Benutzername
-- **Password**: das kopierte Token
-
-Die macOS-Schlüsselbundverwaltung merkt sich diese Anmeldedaten nach dem ersten
-erfolgreichen Zugriff – bei künftigen Updates (siehe unten) erscheint die Abfrage
-in der Regel nicht mehr.
-
-### Schritt 4: Installieren
+Alternativ, gleichwertig:
 
 ```bash
 git clone https://github.com/andreasgrathwohl/OneDriveMac.git ~/Developer/OneDriveMac && bash ~/Developer/OneDriveMac/install-mac.sh
@@ -98,7 +82,7 @@ den angemeldeten Benutzer nicht beschreibbar, fragt macOS zwischendurch nach dem
 **Administrator-Passwort** (sudo). Am Ende startet die App automatisch, und das Symbol
 erscheint oben rechts in der Menüleiste.
 
-### Schritt 5: Einrichtung
+### Schritt 4: Einrichtung
 
 Auf das neue Menüleisten-Symbol klicken → **Einstellungen …** → Button
 **„OneDrive Opener als Standard festlegen“**. Das macht OneDrive Opener zur
@@ -111,7 +95,7 @@ aktiviert ist. Bei einer frischen Installation aus `/Applications` wird das beim
 ersten Start automatisch eingeschaltet; auf macOS 13 und neuer erscheint der Eintrag
 zusätzlich unter **Systemeinstellungen → Allgemein → Anmeldeobjekte**.
 
-### Schritt 6: Test
+### Schritt 5: Test
 
 Eine `.docx`-Datei aus dem OneDrive-Ordner im Finder doppelklicken. Word sollte die
 Datei öffnen und in der Titelleiste den Dateinamen anzeigen (nicht „Auf meinem Mac
@@ -458,3 +442,14 @@ für den produktiven Rollout verwendet werden.
 - Beim Auslesen der Konfiguration der App-Store-Version von OneDrive (Zugriff auf
   deren sandboxten Container) kann macOS eine Berechtigungsabfrage einblenden, die
   bestätigt werden muss.
+
+## Lizenz
+
+OneDrive Opener steht unter der [MIT-Lizenz](LICENSE).
+
+Die Erkennung der OneDrive-Ordner (`Sources/OneDriveConfig.swift`) ist eine Portierung
+von Guido Witt-Dörrings VBA-Modul „GetLocalPath“, ebenfalls MIT-lizenziert – Hinweis
+und Lizenztext siehe [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Microsoft, Office, Word, Excel, PowerPoint und OneDrive sind Marken der Microsoft
+Corporation. Dieses Projekt steht in keiner Verbindung zu Microsoft.

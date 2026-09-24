@@ -11,8 +11,9 @@ struct SyncRoot: Hashable {
 /// zu welcher Web-URL gehört.
 ///
 /// Das Format ist von Microsoft nicht dokumentiert. Die Logik folgt der erprobten VBA-Implementierung
-/// „GetLocalPath“ von Guido Witt-Dörring (MIT):
+/// „GetLocalPath“ von Guido Witt-Dörring:
 /// https://gist.github.com/guwidoe/038398b6be1b16c458365716a921814d
+/// Copyright (c) 2026 Guido Witt-Dörring, MIT-Lizenz – vollständiger Text in THIRD_PARTY_NOTICES.md.
 ///
 /// - `settings/<Konto>/global.ini` → `cid`
 /// - `settings/<Konto>/<cid>.ini` → Zeilen `libraryScope`, `libraryFolder`, `AddedScope` (Business)
