@@ -76,13 +76,18 @@ enum FileOpener {
     }
 
     /// Office-Adresse wie bei „In Desktop-App öffnen“ in OneDrive im Web. Word für Mac ignoriert die
-    /// dokumentierte Kurzform `ms-word:ofe|u|<URL>`; erst mit `or` (Herkunft), `ct` (Zeitstempel in ms)
-    /// und `cid` (Korrelations-ID) öffnet es das Dokument. Die Werte werden bei jedem Aufruf neu erzeugt.
+    /// dokumentierte Kurzform `ms-word:ofe|u|<URL>`; es öffnet das Dokument nur mit `or` (Herkunft),
+    /// `ct` (Zeitstempel in ms) und `cid` (Korrelations-ID) und mit `%7C` statt `|` als Trennzeichen –
+    /// beides auf einem Mac getestet. Die Werte werden bei jedem Aufruf neu erzeugt.
     static func officeURI(_ app: OfficeApp, _ webURL: String) -> String {
-        let origin = UUID().uuidString.lowercased() + "_0"
-        let clickTime = Int64(Date().timeIntervalSince1970 * 1000)
-        let correlation = UUID().uuidString.lowercased()
-        return "\(app.scheme):ofe|or|\(origin)|ct|\(clickTime)|cid|\(correlation)|u|\(webURL)"
+        let fields = [
+            "ofe",
+            "or", UUID().uuidString.lowercased() + "_0",
+            "ct", String(Int64(Date().timeIntervalSince1970 * 1000)),
+            "cid", UUID().uuidString.lowercased(),
+            "u", webURL,
+        ]
+        return "\(app.scheme):" + fields.joined(separator: "%7C")
     }
 
     private static func openWithLaunchServices(_ uri: String) -> Bool {
