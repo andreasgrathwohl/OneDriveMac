@@ -19,7 +19,7 @@ enum FileOpener {
         }
 
         guard let resolved = PathResolver.resolve(file, roots: PathResolver.allRoots()) else {
-            Log.info("Nicht in einem bekannten OneDrive-Ordner → lokal")
+            Log.info("Keine Online-Adresse bekannt (nicht in OneDrive oder Sonderzeichen im Namen) → lokal")
             openLocally(file, app)
             return
         }
