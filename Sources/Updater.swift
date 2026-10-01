@@ -26,10 +26,21 @@ final class Updater {
     }
 
     func start() {
-        timer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in
             Task { @MainActor in await Updater.shared.check(userInitiated: false) }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+        // Laptops sind oft lange zugeklappt: nach dem Aufwachen ebenfalls prüfen.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in Updater.shared.checkSoon() }
+        }
+        checkSoon(after: 60)
+    }
+
+    /// Prüfung mit Verzögerung (Netzwerk nach dem Aufwachen/Verbinden erst bereit werden lassen).
+    func checkSoon(after seconds: TimeInterval = 30) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             Task { @MainActor in await Updater.shared.check(userInitiated: false) }
         }
     }
@@ -45,6 +56,7 @@ final class Updater {
             guard (response as? HTTPURLResponse)?.statusCode == 200,
                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 status = "Prüfung fehlgeschlagen"
+                Log.error("Update-Prüfung: GitHub antwortet mit Status \((response as? HTTPURLResponse)?.statusCode ?? 0)")
                 return
             }
             let version = (json["tag_name"] as? String ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
@@ -68,6 +80,7 @@ final class Updater {
             } else {
                 available = nil
                 status = "Aktuell (Version \(currentVersion))"
+                Log.info("Update-Prüfung: Version \(currentVersion) ist aktuell")
             }
         } catch {
             status = "Prüfung fehlgeschlagen"

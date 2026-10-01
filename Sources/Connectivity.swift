@@ -28,7 +28,10 @@ final class Connectivity {
             self.lock.unlock()
             guard changed else { return }
             Log.info(now ? "Netzwerk wieder verfügbar" : "Keine Netzwerkverbindung – Dateien werden lokal geöffnet")
-            Task { @MainActor in AppState.changed() }
+            Task { @MainActor in
+                AppState.changed()
+                if now { Updater.shared.checkSoon() }
+            }
         }
         monitor.start(queue: DispatchQueue(label: "OneDriveOpener.connectivity"))
     }
