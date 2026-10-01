@@ -572,6 +572,11 @@ enum OneDriveConfig {
         }
         out.append("  Geschätzte Zuordnungen online öffnen: \(Settings.useGuessedMappings ? "ja" : "nein")")
         out.append("")
+        out.append("== Gelernte Online-Schreibweisen ==")
+        Settings.learnedOnlineNames.sorted { $0.key < $1.key }.forEach { out.append("  \($0.key) → \($0.value)") }
+        out.append("")
+        out.append("Geräte-ID: \(Settings.installID) · Fehlerberichte: \(Settings.sendReports ? "an" : "aus")")
+        out.append("")
         out.append("== Manuelle Zuordnungen ==")
         Settings.manualMappings.forEach { out.append("  \($0.localPath)\n    → \($0.webURL)") }
         out.append("")

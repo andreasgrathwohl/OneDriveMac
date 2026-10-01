@@ -30,6 +30,7 @@ enum Log {
     static func error(_ message: String) {
         logger.error("\(message, privacy: .public)")
         write("FEHLER", message)
+        Task { @MainActor in Reporter.shared.captureError(message) }
     }
 
     private static func write(_ level: String, _ message: String) {

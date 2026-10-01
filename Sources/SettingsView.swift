@@ -48,6 +48,13 @@ final class SettingsModel: ObservableObject {
             Log.info("Automatische Updates \(autoUpdate ? "ein" : "aus")")
         }
     }
+    @Published var sendReports: Bool {
+        didSet {
+            guard sendReports != Settings.sendReports else { return }
+            Settings.sendReports = sendReports
+            Log.info("Automatische Fehlerberichte \(sendReports ? "ein" : "aus")")
+        }
+    }
     @Published var wordStatus = ""
     @Published var updateStatus = ""
     @Published var waitSeconds: Int { didSet { Settings.syncWaitSeconds = waitSeconds } }
@@ -90,6 +97,7 @@ final class SettingsModel: ObservableObject {
         useGuessed = Settings.useGuessedMappings
         wordIntegration = Settings.wordIntegration
         autoUpdate = Settings.autoUpdate
+        sendReports = Settings.sendReports
         waitSeconds = Settings.syncWaitSeconds
         openMethod = Settings.openMethod
         mappings = Settings.manualMappings
@@ -105,6 +113,7 @@ final class SettingsModel: ObservableObject {
         useGuessed = Settings.useGuessedMappings
         wordIntegration = Settings.wordIntegration
         autoUpdate = Settings.autoUpdate
+        sendReports = Settings.sendReports
         wordStatus = WordIntegration.shared.status
         updateStatus = Updater.shared.status
         handlers = DefaultHandler.statusRows()
@@ -510,11 +519,12 @@ struct TroubleshootingTab: View {
                     Spacer()
                     Button("In Zwischenablage kopieren") { model.copyDiagnostics() }
                 }
+                Toggle("Fehler automatisch an den Entwickler melden", isOn: $model.sendReports)
             } header: {
                 Text("Protokoll und Diagnose")
             } footer: {
                 Caption(model.message.isEmpty
-                    ? "Bitte beim Melden eines Problems den Diagnosebericht mitschicken."
+                    ? "Gemeldet werden Fehlermeldungen, App- und macOS-Version, betroffene Datei- und Ordnernamen sowie Protokollzeilen – keine Dokumentinhalte."
                     : model.message)
             }
 

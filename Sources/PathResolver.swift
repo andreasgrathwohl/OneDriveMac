@@ -35,7 +35,10 @@ enum PathResolver {
             let depth = URL(fileURLWithPath: norm).pathComponents.count
             let components = Array(real.pathComponents.dropFirst(depth))
             // Online verbotene Zeichen, deren Umsetzung durch OneDrive nicht bekannt ist: lieber lokal öffnen.
-            if components.contains(where: { $0.rangeOfCharacter(from: unknownOnlineCharacters) != nil }) { return nil }
+            let learned = Settings.learnedOnlineNames
+            if components.contains(where: {
+                learned[$0.precomposedStringWithCanonicalMapping] == nil && $0.rangeOfCharacter(from: unknownOnlineCharacters) != nil
+            }) { return nil }
             let tail = components.map { encodeSegment(onlineName($0)) }.joined(separator: "/")
             return (tail.isEmpty ? base : base + "/" + tail, root)
         }
@@ -47,7 +50,8 @@ enum PathResolver {
     /// Name eines Ordners/einer Datei in OneDrive online. Ein „/“ im Finder ist auf dem Mac intern ein „:“;
     /// beides ist online verboten, OneDrive verwendet dort „_“ (z. B. „2025/26-8c“ → „2025_26-8c“).
     static func onlineName(_ localName: String) -> String {
-        localName.replacingOccurrences(of: ":", with: "_")
+        if let learned = Settings.learnedOnlineNames[localName.precomposedStringWithCanonicalMapping] { return learned }
+        return localName.replacingOccurrences(of: ":", with: "_")
     }
 
     private static let unreserved = CharacterSet(

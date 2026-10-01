@@ -75,9 +75,42 @@ enum FileOpener {
         }
         if ok {
             AppState.recordOpen(file, online: true)
+            if app == .word { Task { await verifyOpened(file, webURL: webURL) } }
         } else {
             openLocally(file, app)
         }
+    }
+
+    private static let wordDocumentNamesScript = """
+    if application id "com.microsoft.Word" is not running then return ""
+    set docNames to {}
+    with timeout of 5 seconds
+      tell application id "com.microsoft.Word" to set docNames to name of every document
+    end timeout
+    set AppleScript's text item delimiters to linefeed
+    return docNames as text
+    """
+
+    /// Prüft, ob Word das Dokument wirklich geöffnet hat. Sonst: Fehler melden (mit der erzeugten Adresse)
+    /// und die Datei lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht.
+    private static func verifyOpened(_ file: URL, webURL: String) async {
+        // Word zeigt den Online-Namen (z. B. „_“ statt „:“), evtl. ohne Endung.
+        let online = webURL.split(separator: "/").last.map { String($0).removingPercentEncoding ?? String($0) }
+        let names = [file.lastPathComponent, online ?? ""].filter { !$0.isEmpty }.flatMap { n -> [String] in
+            let nfc = n.precomposedStringWithCanonicalMapping
+            return [nfc, (nfc as NSString).deletingPathExtension]
+        }
+        for _ in 0..<30 {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            let result = await AppleScriptRunner.run(wordDocumentNamesScript)
+            guard !result.permissionDenied, let output = result.output else { return }
+            let open = output.split(separator: "\n").map { String($0).precomposedStringWithCanonicalMapping }
+            if open.contains(where: { doc in names.contains { doc.caseInsensitiveCompare($0) == .orderedSame } }) {
+                return
+            }
+        }
+        Log.error("Word hat „\(file.lastPathComponent)“ nicht geöffnet. Lokaler Pfad: \(file.path) – erzeugte Adresse: \(webURL)")
+        openLocally(file, .word)
     }
 
     /// Office-Adresse wie bei „In Desktop-App öffnen“ in OneDrive im Web. Word für Mac ignoriert die

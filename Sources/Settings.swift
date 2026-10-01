@@ -74,6 +74,34 @@ enum Settings {
         defaults.string(forKey: "UpdateRepository") ?? "andreasgrathwohl/OneDriveMac"
     }
 
+    /// Fehler automatisch melden und Diagnose-Anfragen von außen beantworten (siehe `Reporter`).
+    static var sendReports: Bool {
+        get { defaults.object(forKey: "SendReports") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "SendReports") }
+    }
+
+    static var reportEndpoint: String { defaults.string(forKey: "ReportEndpoint") ?? ReportBackend.endpoint }
+    static var reportKey: String { defaults.string(forKey: "ReportKey") ?? ReportBackend.key }
+
+    /// Zufällige Geräte-ID für Fehlerberichte (enthält keine persönlichen Daten).
+    static var installID: String {
+        if let id = defaults.string(forKey: "InstallID") { return id }
+        let id = UUID().uuidString.lowercased()
+        defaults.set(id, forKey: "InstallID")
+        return id
+    }
+
+    static var lastHandledRequest: Int {
+        get { defaults.integer(forKey: "LastHandledRequest") }
+        set { defaults.set(newValue, forKey: "LastHandledRequest") }
+    }
+
+    /// Gelernte Online-Schreibweisen: lokaler Name → Name in OneDrive online (siehe `PathLearner`).
+    static var learnedOnlineNames: [String: String] {
+        get { defaults.dictionary(forKey: "LearnedOnlineNames") as? [String: String] ?? [:] }
+        set { defaults.set(newValue, forKey: "LearnedOnlineNames") }
+    }
+
     /// Auch geschätzte Zuordnungen online öffnen (Risiko: falsche Web-Adresse). Standard: aus.
     static var useGuessedMappings: Bool {
         get { defaults.bool(forKey: "UseGuessedMappings") }

@@ -120,6 +120,10 @@ final class WordIntegration {
         var openLocal = Set<String>()
         for line in output.split(separator: "\n") {
             let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            if parts.count == 3, parts[0].lowercased().hasPrefix("https://") {
+                PathLearner.learn(fromCloudURL: parts[0])
+                continue
+            }
             guard parts.count == 3, parts[1].hasPrefix("/") else { continue }
             let fullName = parts[0]
             let file = URL(fileURLWithPath: parts[1])

@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HandlerGuard.shared.start()
         WordIntegration.shared.start()
         Updater.shared.start()
+        Reporter.shared.start()
         // Das Neu-Signieren beim Übernehmen der Office-Symbole setzt Berechtigungen zurück –
         // deshalb vor dem Anmelden als Startobjekt erledigen.
         Task {
