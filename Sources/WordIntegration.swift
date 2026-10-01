@@ -51,7 +51,7 @@ final class WordIntegration {
     }
 
     private func tick() {
-        guard Settings.wordIntegration, Settings.enabled, !busy, !denied,
+        guard Settings.wordIntegration, Settings.enabled, !busy, !denied, Connectivity.shared.isOnline,
               NSWorkspace.shared.frontmostApplication?.bundleIdentifier == OfficeApp.word.bundleID else { return }
         busy = true
         Task {

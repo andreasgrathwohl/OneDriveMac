@@ -5,11 +5,12 @@ import SwiftUI
 @MainActor
 enum UserStatus {
     enum Kind: Equatable {
-        case active, openWithOnly, problem, paused
+        case active, openWithOnly, problem, paused, offline
     }
 
     static var kind: Kind {
         if !Settings.enabled { return .paused }
+        if !Connectivity.shared.isOnline { return .offline }
         if AppState.handlerProblem != nil { return .problem }
         let rows = DefaultHandler.statusRows()
         if rows.isEmpty || !rows.allSatisfy(\.isOurs) { return .openWithOnly }
@@ -22,6 +23,7 @@ enum UserStatus {
         case .openWithOnly: return "Bereit"
         case .problem: return "Office hat den Doppelklick übernommen"
         case .paused: return "Pausiert"
+        case .offline: return "Offline"
         }
     }
 
@@ -31,12 +33,13 @@ enum UserStatus {
         case .openWithOnly: return "Nur über „Öffnen mit“. Ein Doppelklick öffnet Office noch ohne AutoSpeichern."
         case .problem: return "Dateien öffnen per Doppelklick wieder ohne AutoSpeichern."
         case .paused: return "Office-Dateien werden wie gewohnt ohne AutoSpeichern geöffnet."
+        case .offline: return "Ohne Internet öffnen Dateien ohne AutoSpeichern. OneDrive lädt Änderungen später hoch."
         }
     }
 
     static func actionTitle(_ kind: Kind) -> String? {
         switch kind {
-        case .active: return nil
+        case .active, .offline: return nil
         case .openWithOnly: return "Für Doppelklick aktivieren"
         case .problem: return "Reparieren"
         case .paused: return "Fortsetzen"
@@ -49,6 +52,7 @@ enum UserStatus {
         case .openWithOnly: return "icloud"
         case .problem: return "exclamationmark.icloud"
         case .paused: return "icloud.slash"
+        case .offline: return "wifi.slash"
         }
     }
 
@@ -57,13 +61,13 @@ enum UserStatus {
         case .active: return .systemGreen
         case .openWithOnly: return .systemBlue
         case .problem: return .systemOrange
-        case .paused: return .systemGray
+        case .paused, .offline: return .systemGray
         }
     }
 
     static func performAction(_ kind: Kind) async {
         switch kind {
-        case .active:
+        case .active, .offline:
             return
         case .paused:
             Settings.enabled = true

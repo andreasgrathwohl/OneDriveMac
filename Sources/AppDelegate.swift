@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             diagnostics: { [weak self] in self?.model.copyDiagnostics() }))
         Log.info("Gestartet: \(Bundle.main.bundlePath)")
 
+        Connectivity.shared.start()
         HandlerGuard.shared.start()
         WordIntegration.shared.start()
         Updater.shared.start()

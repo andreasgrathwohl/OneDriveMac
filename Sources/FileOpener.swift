@@ -25,6 +25,11 @@ enum FileOpener {
         }
         let web = resolved.url
         let root = resolved.root
+        if !Connectivity.shared.isOnline {
+            Log.info("Offline – „\(file.lastPathComponent)“ wird lokal geöffnet (AutoSpeichern braucht eine Internetverbindung)")
+            openLocally(file, app)
+            return
+        }
         if root.isGuess && !Settings.useGuessedMappings {
             Log.info("Zuordnung für \(root.localPath) ist nur geschätzt (\(root.source)) → lokal. "
                 + "Für AutoSpeichern bitte manuell zuordnen. Vermutete Adresse: \(web)")
