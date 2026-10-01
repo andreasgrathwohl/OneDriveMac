@@ -85,7 +85,6 @@ enum Settings {
     static var reportConsentDecided: Bool { defaults.object(forKey: "SendReports") != nil }
 
     static var reportEndpoint: String { defaults.string(forKey: "ReportEndpoint") ?? ReportBackend.endpoint }
-    static var reportKey: String { defaults.string(forKey: "ReportKey") ?? ReportBackend.key }
 
     /// Zufällige Geräte-ID für Fehlerberichte (enthält keine persönlichen Daten).
     static var installID: String {
@@ -95,9 +94,10 @@ enum Settings {
         return id
     }
 
-    static var lastHandledRequest: Int {
-        get { defaults.integer(forKey: "LastHandledRequest") }
-        set { defaults.set(newValue, forKey: "LastHandledRequest") }
+    /// Zeitstempel (PocketBase-Format) der zuletzt bearbeiteten Anfrage von außen.
+    static var lastRequestCreated: String? {
+        get { defaults.string(forKey: "LastRequestCreated") }
+        set { defaults.set(newValue, forKey: "LastRequestCreated") }
     }
 
     /// Gelernte Online-Schreibweisen: lokaler Name → Name in OneDrive online (siehe `PathLearner`).

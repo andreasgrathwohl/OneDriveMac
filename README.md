@@ -426,6 +426,8 @@ daher zentral per Konfigurationsprofil vorgeben. Verwendete Schlüssel:
 | `AutoUpdate`         | Bool               | Neue Versionen aus GitHub-Releases automatisch installieren | `true`   |
 | `UpdateRepository`   | String             | GitHub-Repository (`besitzer/name`) für Updates, z. B. für einen Fork | `”andreasgrathwohl/OneDriveMac”` |
 | `OpenMethod`         | String             | Methode zum Öffnen: `officeURI` (default), `appleEvent`, oder `webURL` | `”officeURI”` |
+| `SendReports`        | Bool               | Fehlerberichte automatisch senden (wird per Zustimmungsdialog abgefragt) | `false`  |
+| `ReportEndpoint`     | String             | Server-Adresse für Fehlerberichte                       | `"https://onedrivemac.grathwohl.dev"` |
 
 Daneben verwendet die App noch `OfficeVersions` und `LoginItemInitialized` in
 `UserDefaults` – das sind rein interne Merker (zuletzt erkannte Office-Versionen bzw.
@@ -505,6 +507,89 @@ xattr -dr com.apple.quarantine "/Applications/OneDrive Opener.app"
 
 Das ist kein Ersatz für eine ordentliche Signierung/Notarisierung und sollte nicht
 für den produktiven Rollout verwendet werden.
+
+## Fehlerberichte & Berichts-Server
+
+Die App kann Fehler automatisch berichten, um diese schneller behoben zu werden. Eine Startnachricht wird ebenfalls gesendet.
+
+### Was die App sendet
+
+Gesendet werden nur nach Zustimmung durch einen einmaligen Dialog „Fehlerberichte an den Entwickler senden?" (lässt sich per MDM-Schlüssel `SendReports` vorbelegen):
+
+- **Fehler**: Maximal einmal pro Stunde pro Meldung, maximal 30 pro Tag. Mitgesendet: App- und macOS-Version, betroffene Datei-/Ordnernamen und Adressen, die letzten 40 Protokollzeilen.
+- **Start-Ereignis**: Beim Start der App.
+- **Gelernte Online-Schreibweisen**: Lokal erkannte Namen von OneDrive-Dateien und deren Schreibweise online.
+- **Vollständige Diagnose**: Nur auf externe Anfrage.
+
+**Nicht gesendet werden Dokumentinhalte**.
+
+Ist der Server nicht erreichbar (z. B. Mac nicht im Heimnetz), werden Berichte zwischengespeichert (max. 100) und später nachgeliefert.
+
+### Remote-Anfragen
+
+Der Server kann Anfragen mit einem `kind`-Feld stellen (Sammlung `requests`):
+
+- `diagnostics`: Voller Diagnosebericht plus die letzten 500 Protokollzeilen werden gesendet.
+- `update`: Die App prüft auf Updates (wie die stündliche automatische Prüfung).
+
+Das Feld `install_id` kann leer (alle Geräte) oder eine spezifische Geräte-ID enthalten. Die App prüft alle 15 Minuten auf neue Anfragen.
+
+### Server (PocketBase)
+
+**Datei**: `server/docker-compose.yml`
+
+Der Berichts-Server ist ein Docker-Container mit PocketBase (SQLite), ca. 15–30 MB RAM.
+
+**Einrichtung**: Stack in die Container-Verwaltung einfügen und Umgebungsvariablen setzen:
+
+- `PB_SUPERUSER_EMAIL`, `PB_SUPERUSER_PASSWORD`: Administrator, Weboberfläche unter `http://<server>:8095/_/`
+- `PB_READER_EMAIL`, `PB_READER_PASSWORD`: Lesekonto zum Abfragen der Berichte (wird beim ersten Start angelegt)
+- `CLOUDFLARE_TUNNEL_TOKEN`: Token des Cloudflare-Tunnels
+
+Passwörter mindestens 8 Zeichen.
+
+**Erreichbarkeit**:
+
+- Die App sendet an `https://onedrivemac.grathwohl.dev` – über einen Cloudflare-Tunnel (Container `tunnel`), also auch unterwegs. Der Tunnel gibt von außen nur `/api/collections/(reports|requests)/records` frei; alles andere (Admin-Oberfläche, Anmeldung, Lesen) antwortet mit 404.
+- Im Heimnetz ist PocketBase zusätzlich unter `http://<server>:8095` erreichbar (nur IPv4) – zum Lesen der Berichte und für die Admin-Oberfläche.
+
+**Datenvolume**: `pb` (Persistierung über Docker-Volume)
+
+Die App darf nur Berichte einliefern (anonyme Schreibzugriffe auf die Sammlung `reports`), nicht aber lesen. Berichte lesen kann ausschließlich das Lesekonto.
+
+### Berichte abfragen (Beispiel mit curl)
+
+Authentifizierung mit dem Lesekonto:
+
+```sh
+curl -X POST http://grathwohl-server.local:8095/api/collections/readers/auth-with-password \
+  -H "Content-Type: application/json" \
+  -d '{"identity":"...","password":"..."}'
+```
+
+Das Ergebnis enthält ein `token`.
+
+Berichte abrufen (sortiert nach Erstellungsdatum, neueste zuerst):
+
+```sh
+curl "http://grathwohl-server.local:8095/api/collections/reports/records?sort=-created" \
+  -H "Authorization: <token>"
+```
+
+Eine Anfrage erstellen (z. B. für Diagnostik):
+
+```sh
+curl -X POST http://grathwohl-server.local:8095/api/collections/requests/records \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <token>" \
+  -d '{"kind":"diagnostics","install_id":""}'
+```
+
+### Sicherheit
+
+Die App hat nur anonyme Schreibrechte auf die Sammlung `reports` und kann keine Berichte lesen. Nur das Lesekonto kann Berichte abrufen; es hat dagegen keinen Zugriff auf die Sammlung `readers`.
+
+Port 8095 ist nur über IPv4 veröffentlicht, damit er nicht über die öffentliche IPv6-Adresse des Servers aus dem Internet erreichbar ist. Von außen ist ausschließlich der Tunnel mit den zwei freigegebenen Pfaden erreichbar. Gegen Spam empfiehlt sich bei Cloudflare ein Rate-Limit für `onedrivemac.grathwohl.dev`.
 
 ## Fehlersuche
 

@@ -1,0 +1,119 @@
+# Berichts-Server für OneDrive Opener – ein Container mit PocketBase (SQLite), ca. 15–30 MB RAM.
+#
+# Als Stack einfügen und diese Variablen setzen (Stack-Umgebung / .env):
+#   PB_SUPERUSER_EMAIL, PB_SUPERUSER_PASSWORD  – Administrator (Weboberfläche http://<server>:8095/_/)
+#   PB_READER_EMAIL,    PB_READER_PASSWORD     – Lesekonto zum Abfragen der Berichte (wird beim ersten Start angelegt)
+# Passwörter mind. 8 Zeichen, sonst startet der Server nicht (siehe Container-Log).
+#   CLOUDFLARE_TUNNEL_TOKEN                    – Token des Cloudflare-Tunnels „onedrivemac“ (https://onedrivemac.grathwohl.dev)
+#
+# Die App darf nur Berichte einliefern und Anfragen lesen; Berichte lesen kann nur das Lesekonto.
+# PocketBase wird beim ersten Start heruntergeladen und im Volume abgelegt.
+
+name: onedriveopener-reports
+
+services:
+  pocketbase:
+    image: alpine:3.20
+    restart: unless-stopped
+    ports:
+      # Nur IPv4/Heimnetz – zum Lesen der Berichte. Von außen nur über den Tunnel (zwei Pfade).
+      - "0.0.0.0:8095:8090"
+    environment:
+      PB_VERSION: "0.40.4"
+      PB_SUPERUSER_EMAIL: ${PB_SUPERUSER_EMAIL:-}
+      PB_SUPERUSER_PASSWORD: ${PB_SUPERUSER_PASSWORD:-}
+      PB_READER_EMAIL: ${PB_READER_EMAIL:-}
+      PB_READER_PASSWORD: ${PB_READER_PASSWORD:-}
+    volumes:
+      - pb:/pb
+    configs:
+      - source: schema
+        target: /pb_migrations/1700000000_onedriveopener.js
+    mem_limit: 96m
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        case "$$(uname -m)" in x86_64) ARCH=amd64 ;; aarch64|arm64) ARCH=arm64 ;; *) echo "Nicht unterstützte Architektur"; exit 1 ;; esac
+        BIN="/pb/bin/pocketbase-$${PB_VERSION}"
+        if [ ! -x "$$BIN" ]; then
+          mkdir -p /pb/bin
+          wget -qO /tmp/pb.zip "https://github.com/pocketbase/pocketbase/releases/download/v$${PB_VERSION}/pocketbase_$${PB_VERSION}_linux_$${ARCH}.zip"
+          unzip -o -q /tmp/pb.zip pocketbase -d /tmp/pb
+          mv /tmp/pb/pocketbase "$$BIN"
+          chmod +x "$$BIN"
+          rm -rf /tmp/pb /tmp/pb.zip
+        fi
+        if [ -n "$$PB_SUPERUSER_EMAIL" ] && [ -n "$$PB_SUPERUSER_PASSWORD" ]; then
+          "$$BIN" superuser upsert "$$PB_SUPERUSER_EMAIL" "$$PB_SUPERUSER_PASSWORD" --dir /pb/data
+        fi
+        exec "$$BIN" serve --http 0.0.0.0:8090 --dir /pb/data --migrationsDir /pb_migrations
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - pocketbase
+    mem_limit: 64m
+
+configs:
+  schema:
+    content: |
+      // Tabellen für OneDrive Opener. Läuft einmalig beim ersten Start.
+      migrate((app) => {
+        const readers = new Collection({
+          type: "auth",
+          name: "readers",
+          listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null,
+        })
+        app.save(readers)
+
+        const isReader = '@request.auth.collectionName = "readers"'
+
+        app.save(new Collection({
+          type: "base",
+          name: "reports",
+          listRule: isReader, viewRule: isReader, createRule: "", updateRule: null, deleteRule: isReader,
+          fields: [
+            { type: "text", name: "install_id", required: true, max: 64 },
+            { type: "text", name: "app_version", max: 32 },
+            { type: "text", name: "os_version", max: 200 },
+            { type: "text", name: "kind", required: true, max: 32 },
+            { type: "text", name: "message", max: 10000 },
+            { type: "json", name: "payload", maxSize: 2000000 },
+            { type: "autodate", name: "created", onCreate: true, onUpdate: false },
+          ],
+        }))
+
+        app.save(new Collection({
+          type: "base",
+          name: "requests",
+          listRule: "", viewRule: "", createRule: isReader, updateRule: null, deleteRule: isReader,
+          fields: [
+            { type: "text", name: "install_id", max: 64 },
+            { type: "text", name: "kind", required: true, max: 32 },
+            { type: "autodate", name: "created", onCreate: true, onUpdate: false },
+          ],
+        }))
+
+        const email = $$os.getenv("PB_READER_EMAIL")
+        const password = $$os.getenv("PB_READER_PASSWORD")
+        if (email && password) {
+          const reader = new Record(readers)
+          reader.set("email", email)
+          reader.set("password", password)
+          reader.set("verified", true)
+          app.save(reader)
+        }
+      }, (app) => {
+        for (const name of ["requests", "reports", "readers"]) {
+          try { app.delete(app.findCollectionByNameOrId(name)) } catch (_) {}
+        }
+      })
+
+volumes:
+  pb:
