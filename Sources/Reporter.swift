@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Zugang zur Berichts-Datenbank (Supabase). Der Schlüssel ist der öffentliche „publishable key“:
 /// Er erlaubt nur das Einfügen in `reports` und das Lesen von `requests` – Berichte lesen kann damit niemand.
@@ -30,10 +30,28 @@ final class Reporter {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 90) {
             Task { @MainActor in
+                Reporter.shared.askConsentIfNeeded()
                 Reporter.shared.send(kind: "start", message: "Gestartet", details: [:])
                 await Reporter.shared.pollRequests()
             }
         }
+    }
+
+    /// Einmalig um Zustimmung bitten – vorher wird nichts gesendet.
+    func askConsentIfNeeded() {
+        guard isConfigured, !Settings.reportConsentDecided, NSApp.modalWindow == nil else { return }
+        let alert = NSAlert()
+        alert.messageText = "Fehlerberichte an den Entwickler senden?"
+        alert.informativeText = "Geht beim Öffnen einer Datei etwas schief, kann OneDrive Opener automatisch einen Bericht senden, damit der Fehler behoben werden kann.
+
+Gesendet werden Fehlermeldungen, App- und macOS-Version, betroffene Datei- und Ordnernamen sowie Protokollzeilen – keine Dokumentinhalte.
+
+Ändern lässt sich das jederzeit unter Einstellungen → Fehlerbehebung."
+        alert.addButton(withTitle: "Erlauben")
+        alert.addButton(withTitle: "Nicht erlauben")
+        NSApp.activate(ignoringOtherApps: true)
+        Settings.sendReports = alert.runModal() == .alertFirstButtonReturn
+        Log.info("Fehlerberichte: \(Settings.sendReports ? "erlaubt" : "abgelehnt")")
     }
 
     /// Von `Log.error` aufgerufen. Gleiche Meldungen höchstens einmal pro Stunde, maximal 30 pro Tag.

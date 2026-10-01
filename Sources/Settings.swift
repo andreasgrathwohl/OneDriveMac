@@ -75,10 +75,14 @@ enum Settings {
     }
 
     /// Fehler automatisch melden und Diagnose-Anfragen von außen beantworten (siehe `Reporter`).
+    /// Erst nach Zustimmung (Abfrage beim Start) oder per MDM-Vorgabe.
     static var sendReports: Bool {
-        get { defaults.object(forKey: "SendReports") as? Bool ?? true }
+        get { defaults.object(forKey: "SendReports") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "SendReports") }
     }
+
+    /// Wurde schon nach der Zustimmung gefragt bzw. ist sie (z. B. per MDM) festgelegt?
+    static var reportConsentDecided: Bool { defaults.object(forKey: "SendReports") != nil }
 
     static var reportEndpoint: String { defaults.string(forKey: "ReportEndpoint") ?? ReportBackend.endpoint }
     static var reportKey: String { defaults.string(forKey: "ReportKey") ?? ReportBackend.key }
