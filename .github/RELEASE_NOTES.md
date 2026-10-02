@@ -1,3 +1,10 @@
+## Neu in 1.4
+
+- **Fehlerberichte (nach Zustimmung):** Einmalig fragt die App, ob sie Fehler an den Entwickler melden darf. Gesendet werden Fehlermeldungen, Versionen, betroffene Datei-/Ordnernamen und Protokollzeilen – keine Dokumentinhalte. Abschaltbar unter Einstellungen → Fehlerbehebung.
+- **Selbstkontrolle:** Öffnet Word ein Dokument nicht, wird das erkannt, gemeldet und die Datei lokal geöffnet.
+- **Lernt Ordnernamen:** Wird ein Dokument einmal als Cloud-Dokument geöffnet (z. B. über „Zuletzt verwendet“), merkt sich die App, wie OneDrive abweichende Ordnernamen online schreibt.
+- **Updates schneller:** Prüfung stündlich, nach dem Aufwachen und sobald wieder Internet da ist.
+
 ## Neu in 1.3.1
 
 - **Ordner mit „/“ im Namen** (z. B. „2025/26-8c“) öffnen jetzt mit AutoSpeichern – OneDrive speichert sie online als „2025_26-8c“.
