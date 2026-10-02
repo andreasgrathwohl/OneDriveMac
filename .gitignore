@@ -3,3 +3,6 @@ build/
 
 # Ausgaben von tools/reports.py (enthalten Dateinamen der Anwender)
 reports-output/
+
+# Zugangsdaten (API-Token, Tunnel-Token, Lesekonto) – nie committen
+.secrets/
