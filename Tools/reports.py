@@ -16,6 +16,7 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
 """
 import json
 import os
+import socket
 import sys
 import urllib.error
 import urllib.parse
@@ -24,6 +25,21 @@ from datetime import datetime
 from pathlib import Path
 
 BASE = os.environ.get("ODO_SERVER", "http://grathwohl-server.local:8095")
+
+
+def _ipv4(base):
+    """Port 8095 ist nur über IPv4 freigegeben – .local-Namen lösen oft zuerst zu IPv6 auf (Timeout)."""
+    parts = urllib.parse.urlsplit(base)
+    if not (parts.hostname or "").endswith(".local"):
+        return base
+    try:
+        ip = socket.getaddrinfo(parts.hostname, parts.port or 80, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
+    except OSError:
+        return base
+    return parts._replace(netloc=f"{ip}:{parts.port}" if parts.port else ip).geturl()
+
+
+BASE = _ipv4(BASE)
 REPO = Path(__file__).resolve().parent.parent
 READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader.txt"))
 OUT_DIR = REPO / "reports-output"
