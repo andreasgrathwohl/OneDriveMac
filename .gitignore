@@ -1,2 +1,5 @@
 build/
 .DS_Store
+
+# Ausgaben von tools/reports.py (enthalten Dateinamen der Anwender)
+reports-output/
