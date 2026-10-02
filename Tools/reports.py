@@ -120,6 +120,8 @@ def main(argv):
         items = records(token, limit=2000)
         devices = {}
         for r in items:  # neueste zuerst
+            if r["kind"] == "test":
+                continue
             d = devices.setdefault(r["install_id"], {"last": r["created"], "version": r.get("app_version"),
                                                      "os": r.get("os_version"), "errors": 0, "reports": 0})
             d["reports"] += 1
