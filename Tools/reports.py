@@ -2,17 +2,17 @@
 """Fehlerberichte von OneDrive Opener abfragen (Berichts-Server, siehe server/docker-compose.yml).
 
 Liest nur im Heimnetz (über den Tunnel ist das Lesen gesperrt). Zugangsdaten des Lesekontos:
-~/.cloudflared/reader.txt – Zeile 1 E-Mail, Zeile 2 Passwort (oder ODO_READER_FILE).
+.secrets/reader.txt im Repo (nicht versioniert) – Zeile 1 E-Mail, Zeile 2 Passwort (oder ODO_READER_FILE).
 Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
 
-  python tools/reports.py list [N]            letzte N Berichte (Standard 20)
-  python tools/reports.py errors [N]          letzte N Fehler
-  python tools/reports.py devices             Geräte mit Version und letzter Meldung
-  python tools/reports.py show ID             einen Bericht vollständig (Protokoll, Pfade)
-  python tools/reports.py request diagnostics|update [INSTALL_ID]
+  python Tools/reports.py list [N]            letzte N Berichte (Standard 20)
+  python Tools/reports.py errors [N]          letzte N Fehler
+  python Tools/reports.py devices             Geräte mit Version und letzter Meldung
+  python Tools/reports.py show ID             einen Bericht vollständig (Protokoll, Pfade)
+  python Tools/reports.py request diagnostics|update [INSTALL_ID]
                                               Anfrage an ein Gerät oder (ohne ID) an alle
-  python tools/reports.py sync                alle Berichte nach reports-output/reports.json
-  python tools/reports.py delete-tests        Probeberichte (kind = "test") löschen
+  python Tools/reports.py sync                alle Berichte nach reports-output/reports.json
+  python Tools/reports.py delete-tests        Probeberichte (kind = "test") löschen
 """
 import json
 import os
@@ -24,8 +24,9 @@ from datetime import datetime
 from pathlib import Path
 
 BASE = os.environ.get("ODO_SERVER", "http://grathwohl-server.local:8095")
-READER_FILE = Path(os.environ.get("ODO_READER_FILE", Path.home() / ".cloudflared" / "reader.txt"))
-OUT_DIR = Path(__file__).resolve().parent.parent / "reports-output"
+REPO = Path(__file__).resolve().parent.parent
+READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader.txt"))
+OUT_DIR = REPO / "reports-output"
 
 
 def call(method, path, token=None, body=None, query=None):
