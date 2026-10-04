@@ -61,23 +61,40 @@ enum FileOpener {
         }
     }
 
+    /// Solange Word noch ein zuvor übergebenes Cloud-Dokument lädt, verwirft es weitere Adressen.
+    /// Bis dahin (höchstens 45 s) wird mit der nächsten Übergabe gewartet.
+    private static var wordBusyUntil: Date?
+
     static func launchCloud(_ webURL: String, app: OfficeApp, fallback file: URL) async {
         // Beim Kaltstart verwirft Office eine zu früh zugestellte URL: erst starten, dann übergeben.
         await ensureRunning(app)
+        if app == .word {
+            if let until = wordBusyUntil, until > Date() {
+                Log.info("Word lädt noch ein anderes Dokument – „\(file.lastPathComponent)“ wartet")
+            }
+            while let until = wordBusyUntil, until > Date() {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            wordBusyUntil = Date().addingTimeInterval(45)
+        }
+        guard await handOver(webURL, app: app) else {
+            if app == .word { wordBusyUntil = nil }
+            openLocally(file, app)
+            return
+        }
+        AppState.recordOpen(file, online: true)
+        if app == .word { Task { await verifyOpened(file, webURL: webURL) } }
+    }
+
+    /// Übergibt die Online-Adresse auf dem eingestellten Weg an Office.
+    private static func handOver(_ webURL: String, app: OfficeApp) async -> Bool {
         let uri = officeURI(app, webURL)
         let method = Settings.openMethod
         Log.info("Öffne online (\(method.title)): \(method == .webURL ? webURL : uri)")
-        let ok: Bool
         switch method {
-        case .officeURI: ok = openWithLaunchServices(uri)
-        case .appleEvent: ok = sendGetURL(uri, to: app)
-        case .webURL: ok = await openWebURL(webURL, with: app)
-        }
-        if ok {
-            AppState.recordOpen(file, online: true)
-            if app == .word { Task { await verifyOpened(file, webURL: webURL) } }
-        } else {
-            openLocally(file, app)
+        case .officeURI: return openWithLaunchServices(uri)
+        case .appleEvent: return sendGetURL(uri, to: app)
+        case .webURL: return await openWebURL(webURL, with: app)
         }
     }
 
@@ -91,17 +108,23 @@ enum FileOpener {
     return docNames as text
     """
 
-    /// Prüft, ob Word das Dokument wirklich geöffnet hat. Sonst: Fehler melden (mit der erzeugten Adresse)
-    /// und die Datei lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht.
+    /// Prüft, ob Word das Dokument wirklich geöffnet hat. Nach 20 s ohne Dokument wird die Adresse
+    /// einmal erneut übergeben; nach 60 s: Fehler melden (mit der erzeugten Adresse) und die Datei
+    /// lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht.
     private static func verifyOpened(_ file: URL, webURL: String) async {
+        defer { wordBusyUntil = nil }
         // Word zeigt den Online-Namen (z. B. „_“ statt „:“), evtl. ohne Endung.
         let online = webURL.split(separator: "/").last.map { String($0).removingPercentEncoding ?? String($0) }
         let names = [file.lastPathComponent, online ?? ""].filter { !$0.isEmpty }.flatMap { n -> [String] in
             let nfc = n.precomposedStringWithCanonicalMapping
             return [nfc, (nfc as NSString).deletingPathExtension]
         }
-        for _ in 0..<30 {
+        for attempt in 1...30 {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
+            if attempt == 11 {
+                Log.info("„\(file.lastPathComponent)“ ist nach 20 s nicht offen – Adresse wird erneut an Word übergeben")
+                _ = await handOver(webURL, app: .word)
+            }
             let result = await AppleScriptRunner.run(wordDocumentNamesScript)
             guard !result.permissionDenied, let output = result.output else { return }
             let open = output.split(separator: "\n").map { String($0).precomposedStringWithCanonicalMapping }

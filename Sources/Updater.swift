@@ -84,9 +84,19 @@ final class Updater {
             }
         } catch {
             status = "Prüfung fehlgeschlagen"
-            Log.error("Update-Prüfung fehlgeschlagen: \(error.localizedDescription)")
+            // Ohne Internet (unterwegs, WLAN ohne Zugang) ist das kein Fehler – nur protokollieren, nicht melden.
+            if (error as? URLError).map(Self.isConnectivityProblem) == true {
+                Log.info("Update-Prüfung übersprungen: \(error.localizedDescription)")
+            } else {
+                Log.error("Update-Prüfung fehlgeschlagen: \(error.localizedDescription)")
+            }
         }
         AppState.changed()
+    }
+
+    private static func isConnectivityProblem(_ error: URLError) -> Bool {
+        [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost, .cannotConnectToHost,
+         .dnsLookupFailed, .internationalRoamingOff, .dataNotAllowed, .secureConnectionFailed].contains(error.code)
     }
 
     static func isNewer(_ candidate: String, than current: String) -> Bool {

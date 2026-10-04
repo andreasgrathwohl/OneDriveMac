@@ -1,3 +1,9 @@
+## Neu in 1.4.1
+
+- **Mehrere Dokumente kurz nacheinander öffnen** funktioniert jetzt zuverlässig: Die App wartet, bis Word das vorige Dokument aus der Cloud geladen hat, bevor sie das nächste übergibt (zuvor öffnete sich das zweite Dokument nur lokal).
+- Öffnet sich ein Dokument nicht innerhalb von 20 Sekunden, wird es einmal erneut an Word übergeben.
+- Fehlende Internetverbindung bei der Update-Prüfung wird nicht mehr als Fehler gemeldet.
+
 ## Neu in 1.4
 
 - **Fehlerberichte (nach Zustimmung):** Einmalig fragt die App, ob sie Fehler an den Entwickler melden darf. Gesendet werden Fehlermeldungen, Versionen, betroffene Datei-/Ordnernamen und Protokollzeilen – keine Dokumentinhalte. Abschaltbar unter Einstellungen → Fehlerbehebung.
