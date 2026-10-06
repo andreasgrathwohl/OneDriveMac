@@ -1,3 +1,7 @@
+## Neu in 1.4.3
+
+- **Ordner mit „/“ im Namen (z. B. „2025/26-8c“) öffnen jetzt mit AutoSpeichern.** OneDrive behält das Zeichen online als Doppelpunkt („2025:26-8c“); die App hatte es fälschlich in „_“ umgewandelt. Die Schreibweise wird jetzt aus der Datenbank des OneDrive-Clients bestätigt.
+
 ## Neu in 1.4.2
 
 - **Ordner mit „/“ im Namen (z. B. „2025/26-8c“):** Die App liest die echte Online-Schreibweise jetzt aus der Datenbank des OneDrive-Clients, statt sie zu raten. Dokumente aus solchen Ordnern öffnen damit mit AutoSpeichern.

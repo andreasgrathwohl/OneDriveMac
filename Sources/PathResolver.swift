@@ -48,8 +48,8 @@ enum PathResolver {
 
     private static let unknownOnlineCharacters = CharacterSet(charactersIn: "\"*<>?\\|")
 
-    /// Name in OneDrive online: gelernte Schreibweise, sonst bei online verbotenen Zeichen Nachschlagen in der
-    /// OneDrive-Datenbank, sonst „:“ → „_“ als Notbehelf. `nil` = unbekannt (Datei lokal öffnen).
+    /// Name in OneDrive online: gelernte Schreibweise, sonst bei Sonderzeichen Nachschlagen in der
+    /// OneDrive-Datenbank, sonst der lokale Name („:“ bleibt erhalten). `nil` = unbekannt (Datei lokal öffnen).
     /// Ein „/“ im Finder ist auf dem Mac intern ein „:“; beides ist online verboten.
     static func onlineName(_ localName: String, parent: String?) -> String? {
         let local = localName.precomposedStringWithCanonicalMapping
@@ -68,13 +68,14 @@ enum PathResolver {
             return name
         }
         if local.rangeOfCharacter(from: unknownOnlineCharacters) != nil { return nil }
-        return local.replacingOccurrences(of: ":", with: "_")
+        // OneDrive behält den Doppelpunkt online (in seiner Datenbank als „&#x3a;“ gespeichert).
+        return local
     }
 
     /// Ohne Nachschlagen (für den Vergleich mit Words Online-Adressen in `PathLearner`).
     static func onlineName(_ localName: String) -> String {
         if let learned = Settings.learnedOnlineNames[localName.precomposedStringWithCanonicalMapping] { return learned }
-        return localName.replacingOccurrences(of: ":", with: "_")
+        return localName
     }
 
     private static let unreserved = CharacterSet(

@@ -118,7 +118,7 @@ enum FileOpener {
         defer {
             if wordBusyToken == token { wordBusyUntil = nil }
         }
-        // Word zeigt den Online-Namen (z. B. „_“ statt „:“), evtl. ohne Endung.
+        // Word zeigt den Online-Namen, evtl. ohne Endung.
         let online = webURL.split(separator: "/").last.map { String($0).removingPercentEncoding ?? String($0) }
         let names = [file.lastPathComponent, online ?? ""].filter { !$0.isEmpty }.flatMap { n -> [String] in
             let nfc = n.precomposedStringWithCanonicalMapping

@@ -4,10 +4,10 @@ import SQLite3
 /// Schlägt echte Online-Namen in der Datenbank des OneDrive-Clients nach (`SyncEngineDatabase.db` im
 /// Einstellungsordner des Kontos, Tabellen `od_ClientFolder_Records.folderName` und
 /// `od_ClientFile_Records.fileName`). Gebraucht für Namen, die lokal anders heißen als online –
-/// z. B. „2025:26-8c“ (im Finder „2025/26-8c“), weil OneDrive „:“ und „/“ online nicht erlaubt.
+/// z. B. „2025:26-8c“ (im Finder „2025/26-8c“).
 ///
-/// Gesucht wird ein Eintrag mit gleichem übergeordnetem Ordner und gleich langem Namen, der nur an den
-/// Stellen abweicht, an denen lokal ein online verbotenes Zeichen steht. Nur ein eindeutiger Treffer zählt.
+/// Gesucht wird ein Eintrag mit gleichem übergeordnetem Ordner, dessen (entschlüsselter) Name gleich ist oder
+/// nur an Stellen abweicht, an denen lokal ein online verbotenes Zeichen steht. Nur ein eindeutiger Treffer zählt.
 enum OneDriveDB {
     private static let lock = NSLock()
     private static var cache: [String: String] = [:]
@@ -111,33 +111,82 @@ enum OneDriveDB {
     }
 
     /// Online-Namen, die zu `local` passen: zuerst unterhalb des Ordners `parent`, sonst überall (z. B. direkt
-    /// unter dem OneDrive-Stammordner). SQLite zählt Unicode-Codepunkte – erlaubt ist die Länge in NFC bis NFD.
+    /// unter dem OneDrive-Stammordner). Die Datenbank speichert manche Zeichen als XML-Entität
+    /// (z. B. „2025&#x3a;26-8c“ für „2025:26-8c“) – verglichen wird nach dem Entschlüsseln.
     private static func candidates(_ handle: OpaquePointer?, local: String, parent: String?) -> Set<String> {
-        let nfc = local.precomposedStringWithCanonicalMapping.unicodeScalars.count
-        let lengths = nfc...max(nfc, local.decomposedStringWithCanonicalMapping.unicodeScalars.count)
         let tables = [("od_ClientFolder_Records", "folderName"), ("od_ClientFile_Records", "fileName")]
-        var rows: [String] = []
+        func matching(_ rows: [String]) -> Set<String> {
+            Set(rows.map(decodeEntities).filter { matches(local, $0) })
+        }
+        var found = Set<String>()
         if let parent {
             for (table, column) in tables {
-                rows += query(handle, """
+                found.formUnion(matching(query(handle, """
                     SELECT c.\(column) FROM \(table) c JOIN od_ClientFolder_Records p ON c.parentResourceID = p.resourceID
-                    WHERE p.folderName = ?1 AND length(c.\(column)) BETWEEN ?2 AND ?3
-                    """, parent: parent, lengths: lengths)
+                    WHERE p.folderName IN (?1, ?2)
+                    """, parent: parent, encodedParent: encodeEntities(parent))))
             }
         }
-        var found = Set(rows.filter { looselyEqual(local, $0) })
         if found.isEmpty {
+            // SQLite zählt Unicode-Codepunkte – erlaubt ist die Länge in NFC bis NFD; kodierte Namen sind länger.
+            let nfc = local.precomposedStringWithCanonicalMapping.unicodeScalars.count
+            let lengths = nfc...max(nfc, local.decomposedStringWithCanonicalMapping.unicodeScalars.count)
             for (table, column) in tables {
-                rows = query(handle, "SELECT \(column) FROM \(table) WHERE length(\(column)) BETWEEN ?2 AND ?3",
-                             lengths: lengths)
-                found.formUnion(rows.filter { looselyEqual(local, $0) })
+                found.formUnion(matching(query(handle, """
+                    SELECT \(column) FROM \(table) WHERE instr(\(column), '&#') > 0 OR length(\(column)) BETWEEN ?3 AND ?4
+                    """, lengths: lengths)))
             }
         }
         return found
     }
 
+    /// Gleich (ohne Groß-/Kleinschreibung) oder nur an online verbotenen Stellen abweichend.
+    private static func matches(_ local: String, _ online: String) -> Bool {
+        local.precomposedStringWithCanonicalMapping.caseInsensitiveCompare(online.precomposedStringWithCanonicalMapping) == .orderedSame
+            || looselyEqual(local, online)
+    }
+
+    /// „&#x3a;“, „&#58;“, „&amp;“ … → Zeichen.
+    static func decodeEntities(_ text: String) -> String {
+        guard text.contains("&") else { return text }
+        let named: [String: Unicode.Scalar] = ["amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'"]
+        var result = String.UnicodeScalarView()
+        var rest = Substring(text)
+        while let amp = rest.firstIndex(of: "&") {
+            result.append(contentsOf: rest[..<amp].unicodeScalars)
+            let afterAmp = rest.index(after: amp)
+            if let semi = rest[afterAmp...].prefix(10).firstIndex(of: ";") {
+                let entity = String(rest[afterAmp..<semi])
+                var scalar: Unicode.Scalar?
+                if entity.hasPrefix("#x") || entity.hasPrefix("#X") {
+                    scalar = UInt32(entity.dropFirst(2), radix: 16).flatMap { Unicode.Scalar($0) }
+                } else if entity.hasPrefix("#") {
+                    scalar = UInt32(entity.dropFirst(), radix: 10).flatMap { Unicode.Scalar($0) }
+                } else {
+                    scalar = named[entity]
+                }
+                if let scalar {
+                    result.append(scalar)
+                    rest = rest[rest.index(after: semi)...]
+                    continue
+                }
+            }
+            result.append("&")
+            rest = rest[afterAmp...]
+        }
+        result.append(contentsOf: rest.unicodeScalars)
+        return String(result)
+    }
+
+    /// Gegenstück für die Suche nach einem übergeordneten Ordner („:“ → „&#x3a;“).
+    static func encodeEntities(_ text: String) -> String {
+        text.unicodeScalars.map { scalar in
+            forbiddenOnline.contains(Character(scalar)) ? String(format: "&#x%x;", scalar.value) : String(scalar)
+        }.joined()
+    }
+
     private static func query(_ db: OpaquePointer?, _ sql: String, parent: String? = nil,
-                              lengths: ClosedRange<Int>? = nil) -> [String] {
+                              encodedParent: String? = nil, lengths: ClosedRange<Int>? = nil) -> [String] {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
             Log.info("OneDrive-Datenbank: Abfrage fehlgeschlagen: \(String(cString: sqlite3_errmsg(db)))")
@@ -146,9 +195,10 @@ enum OneDriveDB {
         }
         defer { sqlite3_finalize(statement) }
         if let parent { sqlite3_bind_text(statement, 1, parent, -1, transient) }
+        if let encodedParent { sqlite3_bind_text(statement, 2, encodedParent, -1, transient) }
         if let lengths {
-            sqlite3_bind_int(statement, 2, Int32(lengths.lowerBound))
-            sqlite3_bind_int(statement, 3, Int32(lengths.upperBound))
+            sqlite3_bind_int(statement, 3, Int32(lengths.lowerBound))
+            sqlite3_bind_int(statement, 4, Int32(lengths.upperBound))
         }
         var rows: [String] = []
         while sqlite3_step(statement) == SQLITE_ROW {
