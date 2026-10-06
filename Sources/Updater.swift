@@ -153,7 +153,11 @@ final class Updater {
             NSApp.terminate(nil)
         } catch {
             status = "Update fehlgeschlagen"
-            Log.error("Update \(release.version) fehlgeschlagen: \(error.localizedDescription)")
+            if (error as? URLError).map(Self.isConnectivityProblem) == true {
+                Log.info("Update \(release.version) unterbrochen (Netzwerk): \(error.localizedDescription) – wird später erneut versucht")
+            } else {
+                Log.error("Update \(release.version) fehlgeschlagen: \(error.localizedDescription)")
+            }
         }
     }
 

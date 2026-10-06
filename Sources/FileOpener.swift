@@ -62,8 +62,10 @@ enum FileOpener {
     }
 
     /// Solange Word noch ein zuvor übergebenes Cloud-Dokument lädt, verwirft es weitere Adressen.
-    /// Bis dahin (höchstens 45 s) wird mit der nächsten Übergabe gewartet.
+    /// Bis dahin (höchstens 70 s, länger als die Kontrolle in `verifyOpened`) wird mit der nächsten Übergabe gewartet.
     private static var wordBusyUntil: Date?
+    /// Gehört die Sperre noch zu dieser Übergabe? Eine späte Kontrolle darf nicht die Sperre des nächsten Dokuments aufheben.
+    private static var wordBusyToken: UUID?
 
     static func launchCloud(_ webURL: String, app: OfficeApp, fallback file: URL) async {
         // Beim Kaltstart verwirft Office eine zu früh zugestellte URL: erst starten, dann übergeben.
@@ -75,7 +77,8 @@ enum FileOpener {
             while let until = wordBusyUntil, until > Date() {
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
-            wordBusyUntil = Date().addingTimeInterval(45)
+            wordBusyUntil = Date().addingTimeInterval(70)
+            wordBusyToken = UUID()
         }
         guard await handOver(webURL, app: app) else {
             if app == .word { wordBusyUntil = nil }
@@ -83,7 +86,7 @@ enum FileOpener {
             return
         }
         AppState.recordOpen(file, online: true)
-        if app == .word { Task { await verifyOpened(file, webURL: webURL) } }
+        if app == .word, let token = wordBusyToken { Task { await verifyOpened(file, webURL: webURL, token: token) } }
     }
 
     /// Übergibt die Online-Adresse auf dem eingestellten Weg an Office.
@@ -111,8 +114,10 @@ enum FileOpener {
     /// Prüft, ob Word das Dokument wirklich geöffnet hat. Nach 20 s ohne Dokument wird die Adresse
     /// einmal erneut übergeben; nach 60 s: Fehler melden (mit der erzeugten Adresse) und die Datei
     /// lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht.
-    private static func verifyOpened(_ file: URL, webURL: String) async {
-        defer { wordBusyUntil = nil }
+    private static func verifyOpened(_ file: URL, webURL: String, token: UUID) async {
+        defer {
+            if wordBusyToken == token { wordBusyUntil = nil }
+        }
         // Word zeigt den Online-Namen (z. B. „_“ statt „:“), evtl. ohne Endung.
         let online = webURL.split(separator: "/").last.map { String($0).removingPercentEncoding ?? String($0) }
         let names = [file.lastPathComponent, online ?? ""].filter { !$0.isEmpty }.flatMap { n -> [String] in

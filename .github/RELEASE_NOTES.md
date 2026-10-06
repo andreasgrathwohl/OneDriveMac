@@ -1,3 +1,9 @@
+## Neu in 1.4.2
+
+- **Ordner mit „/“ im Namen (z. B. „2025/26-8c“):** Die App liest die echte Online-Schreibweise jetzt aus der Datenbank des OneDrive-Clients, statt sie zu raten. Dokumente aus solchen Ordnern öffnen damit mit AutoSpeichern.
+- Mehrere Dokumente nacheinander: Die Wartesperre gilt jetzt bis Word das vorige Dokument wirklich geöffnet hat.
+- Kurze Netzwerkunterbrechungen beim Laden eines Updates werden nicht mehr als Fehler gemeldet.
+
 ## Neu in 1.4.1
 
 - **Mehrere Dokumente kurz nacheinander öffnen** funktioniert jetzt zuverlässig: Die App wartet, bis Word das vorige Dokument aus der Cloud geladen hat, bevor sie das nächste übergibt (zuvor öffnete sich das zweite Dokument nur lokal).

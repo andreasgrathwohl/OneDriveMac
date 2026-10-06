@@ -34,12 +34,13 @@ enum PathResolver {
             guard let base = encodeBase(root.webURL) else { continue }
             let depth = URL(fileURLWithPath: norm).pathComponents.count
             let components = Array(real.pathComponents.dropFirst(depth))
-            // Online verbotene Zeichen, deren Umsetzung durch OneDrive nicht bekannt ist: lieber lokal öffnen.
-            let learned = Settings.learnedOnlineNames
-            if components.contains(where: {
-                learned[$0.precomposedStringWithCanonicalMapping] == nil && $0.rangeOfCharacter(from: unknownOnlineCharacters) != nil
-            }) { return nil }
-            let tail = components.map { encodeSegment(onlineName($0)) }.joined(separator: "/")
+            var online: [String] = []
+            for component in components {
+                // Unbekannte Online-Schreibweise: lieber lokal öffnen als eine falsche Adresse erzeugen.
+                guard let name = onlineName(component, parent: online.last) else { return nil }
+                online.append(name)
+            }
+            let tail = online.map(encodeSegment).joined(separator: "/")
             return (tail.isEmpty ? base : base + "/" + tail, root)
         }
         return nil
@@ -47,8 +48,30 @@ enum PathResolver {
 
     private static let unknownOnlineCharacters = CharacterSet(charactersIn: "\"*<>?\\|")
 
-    /// Name eines Ordners/einer Datei in OneDrive online. Ein „/“ im Finder ist auf dem Mac intern ein „:“;
-    /// beides ist online verboten, OneDrive verwendet dort „_“ (z. B. „2025/26-8c“ → „2025_26-8c“).
+    /// Name in OneDrive online: gelernte Schreibweise, sonst bei online verbotenen Zeichen Nachschlagen in der
+    /// OneDrive-Datenbank, sonst „:“ → „_“ als Notbehelf. `nil` = unbekannt (Datei lokal öffnen).
+    /// Ein „/“ im Finder ist auf dem Mac intern ein „:“; beides ist online verboten.
+    static func onlineName(_ localName: String, parent: String?) -> String? {
+        let local = localName.precomposedStringWithCanonicalMapping
+        if let learned = Settings.learnedOnlineNames[local] { return learned }
+        guard local.contains(where: { OneDriveDB.forbiddenOnline.contains($0) }) else { return local }
+        if let name = OneDriveDB.onlineName(local: local, parent: parent) {
+            var learned = Settings.learnedOnlineNames
+            learned[local] = name
+            Settings.learnedOnlineNames = learned
+            let codes = name.unicodeScalars.map { String(format: "U+%04X", $0.value) }.joined(separator: " ")
+            Log.info("OneDrive-Datenbank: „\(local)“ heißt online „\(name)“ (\(codes))")
+            Task { @MainActor in
+                Reporter.shared.send(kind: "learned", message: "Online-Schreibweise aus der OneDrive-Datenbank",
+                                     details: ["local": local, "online": name, "online_unicode": codes])
+            }
+            return name
+        }
+        if local.rangeOfCharacter(from: unknownOnlineCharacters) != nil { return nil }
+        return local.replacingOccurrences(of: ":", with: "_")
+    }
+
+    /// Ohne Nachschlagen (für den Vergleich mit Words Online-Adressen in `PathLearner`).
     static func onlineName(_ localName: String) -> String {
         if let learned = Settings.learnedOnlineNames[localName.precomposedStringWithCanonicalMapping] { return learned }
         return localName.replacingOccurrences(of: ":", with: "_")

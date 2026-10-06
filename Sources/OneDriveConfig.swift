@@ -572,6 +572,9 @@ enum OneDriveConfig {
         }
         out.append("  Geschätzte Zuordnungen online öffnen: \(Settings.useGuessedMappings ? "ja" : "nein")")
         out.append("")
+        out.append("== OneDrive-Datenbank ==")
+        OneDriveDB.summary().forEach { out.append("  \($0)") }
+        out.append("")
         out.append("== Gelernte Online-Schreibweisen ==")
         Settings.learnedOnlineNames.sorted { $0.key < $1.key }.forEach { out.append("  \($0.key) → \($0.value)") }
         out.append("")
