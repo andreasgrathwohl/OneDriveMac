@@ -55,6 +55,17 @@ final class SettingsModel: ObservableObject {
             Log.info("Automatische Fehlerberichte \(sendReports ? "ein" : "aus")")
         }
     }
+    @Published var measureSaving: Bool {
+        didSet {
+            guard measureSaving != Settings.measureSaving else { return }
+            Settings.measureSaving = measureSaving
+            Log.info("Speicherdauer messen \(measureSaving ? "ein" : "aus")")
+            SaveMonitor.shared.settingsChanged()
+            if measureSaving && !SaveMonitor.shared.isTrusted { SaveMonitor.shared.requestPermission() }
+        }
+    }
+    @Published var saveStatus = ""
+    @Published var saveTrusted = false
     @Published var wordStatus = ""
     @Published var updateStatus = ""
     @Published var waitSeconds: Int { didSet { Settings.syncWaitSeconds = waitSeconds } }
@@ -98,6 +109,7 @@ final class SettingsModel: ObservableObject {
         wordIntegration = Settings.wordIntegration
         autoUpdate = Settings.autoUpdate
         sendReports = Settings.sendReports
+        measureSaving = Settings.measureSaving
         waitSeconds = Settings.syncWaitSeconds
         openMethod = Settings.openMethod
         mappings = Settings.manualMappings
@@ -114,6 +126,9 @@ final class SettingsModel: ObservableObject {
         wordIntegration = Settings.wordIntegration
         autoUpdate = Settings.autoUpdate
         sendReports = Settings.sendReports
+        measureSaving = Settings.measureSaving
+        saveStatus = SaveMonitor.shared.status
+        saveTrusted = SaveMonitor.shared.isTrusted
         wordStatus = WordIntegration.shared.status
         updateStatus = Updater.shared.status
         handlers = DefaultHandler.statusRows()
@@ -212,6 +227,10 @@ final class SettingsModel: ObservableObject {
         mappings.removeAll { $0.id == mapping.id }
         Log.info("Eigene Zuordnung entfernt: \(mapping.localPath)")
         refresh()
+    }
+
+    func grantAccessibility() {
+        SaveMonitor.shared.requestPermission()
     }
 
     func copyDiagnostics() {
@@ -526,6 +545,21 @@ struct TroubleshootingTab: View {
                 Caption(model.message.isEmpty
                     ? "Gemeldet werden Fehlermeldungen, App- und macOS-Version, betroffene Datei- und Ordnernamen sowie Protokollzeilen – keine Dokumentinhalte."
                     : model.message)
+            }
+
+            Section {
+                Toggle("Speicherdauer in Word, Excel und PowerPoint messen", isOn: $model.measureSaving)
+                HStack {
+                    Caption(model.saveStatus)
+                    Spacer()
+                    if model.measureSaving && !model.saveTrusted {
+                        Button("Freigabe erteilen …") { model.grantAccessibility() }
+                    }
+                }
+            } header: {
+                Text("Speichern")
+            } footer: {
+                Caption("Liest die Anzeige „Wird gespeichert…“ in der Titelleiste mit (macOS-Freigabe „Bedienungshilfen“). Lange Speichervorgänge werden protokolliert und – wenn Fehlerberichte erlaubt sind – automatisch gemeldet. Keine Dokumentinhalte.")
             }
 
             Section {

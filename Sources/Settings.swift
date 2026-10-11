@@ -138,6 +138,41 @@ enum Settings {
         set { defaults.set(newValue, forKey: "LoginItemInitialized") }
     }
 
+    /// Speicherdauer in Word/Excel/PowerPoint über die Bedienungshilfen messen (siehe `SaveMonitor`).
+    static var measureSaving: Bool {
+        get { defaults.object(forKey: "MeasureSaving") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "MeasureSaving") }
+    }
+
+    /// Wurde schon nach der Freigabe „Bedienungshilfen“ gefragt?
+    static var accessibilityAsked: Bool {
+        get { defaults.bool(forKey: "AccessibilityAsked") }
+        set { defaults.set(newValue, forKey: "AccessibilityAsked") }
+    }
+
+    /// War die Freigabe schon einmal erteilt? Fehlt sie dann, hat ein Update sie ungültig gemacht.
+    static var accessibilityGranted: Bool {
+        get { defaults.bool(forKey: "AccessibilityGranted") }
+        set { defaults.set(newValue, forKey: "AccessibilityGranted") }
+    }
+
+    /// Bereits gemeldete Titelleisten-Proben („app|Version|Zustand“).
+    static var saveProbes: [String] {
+        get { defaults.stringArray(forKey: "SaveProbes") ?? [] }
+        set { defaults.set(newValue, forKey: "SaveProbes") }
+    }
+
+    /// Gemessene Speichervorgänge seit der letzten Übersicht.
+    static var saveStats: [[String: Any]] {
+        get { defaults.array(forKey: "SaveStats") as? [[String: Any]] ?? [] }
+        set { defaults.set(newValue, forKey: "SaveStats") }
+    }
+
+    static var saveStatsSent: Date? {
+        get { defaults.object(forKey: "SaveStatsSent") as? Date }
+        set { defaults.set(newValue, forKey: "SaveStatsSent") }
+    }
+
     static var didShowOnboarding: Bool {
         get { defaults.bool(forKey: "DidShowOnboarding") }
         set { defaults.set(newValue, forKey: "DidShowOnboarding") }

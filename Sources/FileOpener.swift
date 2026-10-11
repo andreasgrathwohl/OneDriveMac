@@ -86,6 +86,7 @@ enum FileOpener {
             return
         }
         AppState.recordOpen(file, online: true)
+        SaveMonitor.shared.noteOpened(file)
         if app == .word, let token = wordBusyToken { Task { await verifyOpened(file, webURL: webURL, token: token) } }
     }
 

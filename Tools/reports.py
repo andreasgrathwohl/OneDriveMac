@@ -7,6 +7,8 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
 
   python Tools/reports.py list [N]            letzte N Berichte (Standard 20)
   python Tools/reports.py errors [N]          letzte N Fehler
+  python Tools/reports.py saves [N]           letzte N Speicher-Messungen (slow_save, save_stats,
+                                              save_probe, save_monitor) mit den wichtigsten Werten
   python Tools/reports.py devices             Geräte mit Version und letzter Meldung
   python Tools/reports.py show ID             einen Bericht vollständig (Protokoll, Pfade)
   python Tools/reports.py request diagnostics|update [INSTALL_ID]
@@ -132,6 +134,24 @@ def main(argv):
         text = table(items)
         print(text)
         save(cmd, text, items)
+
+    elif cmd == "saves":
+        limit = int(args[0]) if args else 20
+        items = records(token, 'kind ~ "save"', limit=limit)
+        keys = ("duration_s", "outcome", "opened_by_app", "status_texts", "network", "offline_s", "asleep_s",
+                "office_version", "all", "via_app", "other", "buckets", "state", "status_text", "texts")
+        out = []
+        for r in items:
+            out.append(table([r]))
+            payload = r.get("payload") or {}
+            for key in keys:
+                if key in payload and payload[key] not in ("", None):
+                    value = str(payload[key]).replace("\n", "\n" + " " * 19)
+                    out.append(f"    {key:<14} {value}")
+            out.append("")
+        text = "\n".join(out) or "(keine Messungen)"
+        print(text)
+        save("saves", text, items)
 
     elif cmd == "devices":
         items = records(token, limit=2000)

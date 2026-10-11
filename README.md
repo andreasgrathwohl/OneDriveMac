@@ -206,6 +206,7 @@ Symbol → „Einstellungen …” erneut öffnen. Die Einstellungen sind in dre
 
 - **„Protokoll anzeigen …”**: Öffnet die Log-Datei.
 - **„In Zwischenablage kopieren”**: Erstellt den Diagnosebericht (hilfreiche für Support).
+- **„Speicherdauer in Word, Excel und PowerPoint messen”**: siehe [Speicherdauer messen](#speicherdauer-messen).
 - **„Standard-App je Dateityp”**: Zeigt aktuellen Status der Zuordnungen mit Button **„Jetzt prüfen”** für manuelle Überprüfung.
 - **„Technische Details”**: OneDrive-Ordner und deren Zuordnungen (zur Fehlersuche).
 
@@ -278,6 +279,36 @@ AutoSpeichern öffnen"** (standardmäßig an). Aktuell nur Word; Excel und Power
 **macOS-Berechtigung**: Beim ersten Öffnen fragt macOS „OneDrive Opener möchte Microsoft Word steuern"
 – erlauben. Falls abgelehnt: **Systemeinstellungen → Datenschutz & Sicherheit → Automation → OneDrive Opener
 → Microsoft Word** hakchen.
+
+## Speicherdauer messen
+
+Mit AutoSpeichern lädt Office jede Änderung selbst zu OneDrive hoch – der OneDrive-Client ist daran
+nicht beteiligt und zeigt in der Zeit kein Synchronisieren an. Dauert es lange, bis in der Titelleiste
+„Gespeichert“ erscheint, liegt das an Office (bzw. am Netz), nicht am OneDrive-Client.
+
+Um die Ursache zu finden, liest OneDrive Opener die Speicheranzeige in der Titelleiste von Word, Excel
+und PowerPoint mit („Wird gespeichert…“, „Hochladen ausstehend“, „Gespeichert“) und misst, wie lange
+jeder Speichervorgang dauert. Gelesen wird nur der Bereich der Titelleiste, nie der Dokumentinhalt.
+Die Zeit im Ruhezustand wird nicht mitgezählt, Zeit ohne Netz wird gesondert ausgewiesen.
+
+- **Protokoll:** jeder Vorgang ab 10 Sekunden.
+- **Berichte (nur mit Zustimmung zu Fehlerberichten), automatisch an den Berichts-Server:**
+  - `slow_save` – Speichervorgang ab 2 Minuten (und einmal, wenn er nach 10 Minuten noch läuft), mit
+    Office-Version, Netzwerkart, gelesenen Statustexten und ob das Dokument über OneDrive Opener oder
+    anders (z. B. „Zuletzt verwendet“) geöffnet wurde.
+  - `save_stats` – alle 3 Stunden eine Übersicht aller Vorgänge (Median, 90 %, Maximum, getrennt nach
+    „über die App geöffnet“ / „anders geöffnet“).
+  - `save_probe` – je Office-App, -Version und erkanntem Zustand einmal die gelesenen Titelleisten-Texte,
+    damit sich die Erkennung aus der Ferne prüfen lässt.
+  - `save_monitor` – Freigabe erteilt, abgelehnt oder fehlt.
+- Abfragen: `python Tools/reports.py saves`.
+
+**macOS-Freigabe:** Die App braucht „Bedienungshilfen“. Sie fragt einmalig danach; dann in
+**Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen** „OneDrive Opener“ einschalten.
+Da die App ad-hoc signiert ist, wird die Freigabe nach jedem Update ungültig – die App erkennt das,
+entfernt den alten Eintrag und fragt erneut.
+
+**Einstellung:** **Einstellungen → Fehlerbehebung → Speichern** (standardmäßig an).
 
 ## Automatische Updates
 
@@ -426,6 +457,7 @@ daher zentral per Konfigurationsprofil vorgeben. Verwendete Schlüssel:
 | `AutoUpdate`         | Bool               | Neue Versionen aus GitHub-Releases automatisch installieren | `true`   |
 | `UpdateRepository`   | String             | GitHub-Repository (`besitzer/name`) für Updates, z. B. für einen Fork | `”andreasgrathwohl/OneDriveMac”` |
 | `OpenMethod`         | String             | Methode zum Öffnen: `officeURI` (default), `appleEvent`, oder `webURL` | `”officeURI”` |
+| `MeasureSaving`      | Bool               | Speicherdauer in Office messen (siehe „Speicherdauer messen“) | `true`   |
 | `SendReports`        | Bool               | Fehlerberichte automatisch senden (wird per Zustimmungsdialog abgefragt) | `false`  |
 | `ReportEndpoint`     | String             | Server-Adresse für Fehlerberichte                       | `"https://onedrivemac.grathwohl.dev"` |
 
@@ -519,6 +551,7 @@ Gesendet werden nur nach Zustimmung durch einen einmaligen Dialog „Fehlerberic
 - **Fehler**: Maximal einmal pro Stunde pro Meldung, maximal 30 pro Tag. Mitgesendet: App- und macOS-Version, betroffene Datei-/Ordnernamen und Adressen, die letzten 40 Protokollzeilen.
 - **Start-Ereignis**: Beim Start der App.
 - **Gelernte Online-Schreibweisen**: Lokal erkannte Namen von OneDrive-Dateien und deren Schreibweise online.
+- **Speicher-Messungen**: `slow_save`, `save_stats`, `save_probe`, `save_monitor` (siehe „Speicherdauer messen“).
 - **Vollständige Diagnose**: Nur auf externe Anfrage.
 
 **Nicht gesendet werden Dokumentinhalte**.

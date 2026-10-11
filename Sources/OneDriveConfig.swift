@@ -585,6 +585,9 @@ enum OneDriveConfig {
         out.append("")
         out.append("== Standard-Apps ==")
         DefaultHandler.statusRows().forEach { out.append("  .\($0.ext): \($0.handler)") }
+        out.append("")
+        out.append("== Speichern in Office ==")
+        SaveMonitorSnapshot.diagnosticLines().forEach { out.append("  \($0)") }
         return out.joined(separator: "\n")
     }
 }

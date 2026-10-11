@@ -3,6 +3,10 @@
 - **Ordner mit „/“ im Namen (z. B. „2025/26_7b“) öffnen jetzt wirklich mit AutoSpeichern.** OneDrive speichert den Namen online als „2025&#x3a;26_7b“ und erwartet ihn in einer eigenen Schreibweise in der Adresse – die App verwendet jetzt genau dieselbe Adresse wie „In Desktop-App öffnen“ in OneDrive im Web.
 - Update-Prüfung über die normale GitHub-Release-Seite – kein „Status 403“ mehr in Netzen mit vielen Geräten (z. B. Schule).
 
+## Neu in 1.5.0
+
+- **Speicherdauer messen:** Dauert es in Word oder PowerPoint lange, bis „Gespeichert“ erscheint, misst die App jetzt, wie lange jeder Speichervorgang braucht, und meldet lange Vorgänge automatisch an den Entwickler (nur mit Zustimmung zu Fehlerberichten). Dafür fragt sie einmalig nach der macOS-Freigabe „Bedienungshilfen“ – bitte in den Systemeinstellungen „OneDrive Opener“ einschalten. Gelesen wird nur die Titelleiste, keine Dokumentinhalte. Abschaltbar unter Einstellungen → Fehlerbehebung → Speichern.
+
 ## Neu in 1.4.3
 
 - **Ordner mit „/“ im Namen (z. B. „2025/26-8c“) öffnen jetzt mit AutoSpeichern.** OneDrive behält das Zeichen online als Doppelpunkt („2025:26-8c“); die App hatte es fälschlich in „_“ umgewandelt. Die Schreibweise wird jetzt aus der Datenbank des OneDrive-Clients bestätigt.
