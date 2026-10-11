@@ -46,25 +46,25 @@ final class Updater {
     }
 
     func check(userInitiated: Bool) async {
+        // Die Release-Seite leitet auf …/releases/tag/vX.Y.Z weiter. Anders als die API (60 Anfragen/Stunde pro
+        // Internetanschluss, im Schulnetz schnell erreicht) ist sie nicht begrenzt.
+        let repo = Settings.updateRepository
         guard userInitiated || Settings.autoUpdate,
-              let url = URL(string: "https://api.github.com/repos/\(Settings.updateRepository)/releases/latest") else { return }
+              let url = URL(string: "https://github.com/\(repo)/releases/latest") else { return }
         var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.httpMethod = "HEAD"
         request.setValue("OneDriveOpener/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200,
-                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let final = http.url, final.path.contains("/releases/tag/") else {
                 status = "Prüfung fehlgeschlagen"
-                Log.error("Update-Prüfung: GitHub antwortet mit Status \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+                Log.info("Update-Prüfung: GitHub antwortet mit Status \((response as? HTTPURLResponse)?.statusCode ?? 0)")
                 return
             }
-            let version = (json["tag_name"] as? String ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
-            let assets = json["assets"] as? [[String: Any]] ?? []
-            guard let asset = assets.first(where: { ($0["name"] as? String)?.hasSuffix(".zip") == true }),
-                  let link = asset["browser_download_url"] as? String,
-                  let zipURL = URL(string: link) else {
-                status = "Aktuell (Version \(currentVersion))"
+            let tag = final.lastPathComponent
+            let version = tag.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+            guard let zipURL = URL(string: "https://github.com/\(repo)/releases/download/\(tag)/OneDriveOpener-\(version).zip") else {
                 return
             }
             if Self.isNewer(version, than: currentVersion) {

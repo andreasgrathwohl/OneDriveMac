@@ -112,11 +112,12 @@ enum OneDriveDB {
 
     /// Online-Namen, die zu `local` passen: zuerst unterhalb des Ordners `parent`, sonst überall (z. B. direkt
     /// unter dem OneDrive-Stammordner). Die Datenbank speichert manche Zeichen als XML-Entität
-    /// (z. B. „2025&#x3a;26-8c“ für „2025:26-8c“) – verglichen wird nach dem Entschlüsseln.
+    /// (z. B. „2025&#x3a;26-8c“ für „2025:26-8c“) – verglichen wird entschlüsselt, zurückgegeben der Name
+    /// so wie gespeichert: Online heißt der Ordner wirklich „2025&#x3a;26-8c“.
     private static func candidates(_ handle: OpaquePointer?, local: String, parent: String?) -> Set<String> {
         let tables = [("od_ClientFolder_Records", "folderName"), ("od_ClientFile_Records", "fileName")]
         func matching(_ rows: [String]) -> Set<String> {
-            Set(rows.map(decodeEntities).filter { matches(local, $0) })
+            Set(rows.filter { matches(local, decodeEntities($0)) })
         }
         var found = Set<String>()
         if let parent {

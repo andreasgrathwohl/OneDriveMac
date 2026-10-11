@@ -102,8 +102,9 @@ enum Settings {
 
     /// Gelernte Online-Schreibweisen: lokaler Name → Name in OneDrive online (siehe `PathLearner`).
     static var learnedOnlineNames: [String: String] {
-        get { defaults.dictionary(forKey: "LearnedOnlineNames") as? [String: String] ?? [:] }
-        set { defaults.set(newValue, forKey: "LearnedOnlineNames") }
+        // V2: Einträge vor 1.4.4 enthielten entschlüsselte Namen und sind falsch.
+        get { defaults.dictionary(forKey: "LearnedOnlineNamesV2") as? [String: String] ?? [:] }
+        set { defaults.set(newValue, forKey: "LearnedOnlineNamesV2") }
     }
 
     /// Auch geschätzte Zuordnungen online öffnen (Risiko: falsche Web-Adresse). Standard: aus.

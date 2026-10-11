@@ -83,6 +83,18 @@ enum PathResolver {
 
     static func encodeSegment(_ segment: String) -> String {
         let s = segment.precomposedStringWithCanonicalMapping
+        // Namen mit gespeicherter Entität (z. B. „2025&#x3a;26_7b“): Microsoft schreibt „&“ als „^0“, „#“ als „^N“
+        // und lässt „;“ stehen – mitgeschnitten aus „In Desktop-App öffnen“ (…/2025%5E0%5ENx3a;26_7b/…).
+        if s.range(of: "&#[0-9A-Za-z]+;", options: .regularExpression) != nil {
+            return s.map { character -> String in
+                switch character {
+                case "&": return "%5E0"
+                case "#": return "%5EN"
+                case ";": return ";"
+                default: return String(character).addingPercentEncoding(withAllowedCharacters: unreserved) ?? String(character)
+                }
+            }.joined()
+        }
         return s.addingPercentEncoding(withAllowedCharacters: unreserved) ?? s
     }
 

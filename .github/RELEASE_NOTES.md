@@ -1,3 +1,8 @@
+## Neu in 1.4.4
+
+- **Ordner mit „/“ im Namen (z. B. „2025/26_7b“) öffnen jetzt wirklich mit AutoSpeichern.** OneDrive speichert den Namen online als „2025&#x3a;26_7b“ und erwartet ihn in einer eigenen Schreibweise in der Adresse – die App verwendet jetzt genau dieselbe Adresse wie „In Desktop-App öffnen“ in OneDrive im Web.
+- Update-Prüfung über die normale GitHub-Release-Seite – kein „Status 403“ mehr in Netzen mit vielen Geräten (z. B. Schule).
+
 ## Neu in 1.4.3
 
 - **Ordner mit „/“ im Namen (z. B. „2025/26-8c“) öffnen jetzt mit AutoSpeichern.** OneDrive behält das Zeichen online als Doppelpunkt („2025:26-8c“); die App hatte es fälschlich in „_“ umgewandelt. Die Schreibweise wird jetzt aus der Datenbank des OneDrive-Clients bestätigt.
