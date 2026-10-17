@@ -100,7 +100,8 @@ final class StatusController: NSObject, NSMenuDelegate {
         info(menu, "Version \(version)")
         info(menu, "Doppelklick: \(rows.filter(\.isOurs).count) von \(rows.count) Dateitypen")
         info(menu, HandlerGuard.shared.statusText)
-        info(menu, "Word-Integration: \(WordIntegration.shared.status)")
+        info(menu, "Office-Integration: \(OfficeIntegration.shared.status)")
+        info(menu, "OneDrive-App: \(OneDriveHealth.shared.statusText)")
         info(menu, "Updates: \(Updater.shared.status)")
         info(menu, "Erkannte OneDrive-Ordner: \(PathResolver.allRoots().count)")
         return menu

@@ -1,3 +1,10 @@
+## Neu in 1.6.0
+
+- **Hinweis beim Speichern:** Braucht Word, Excel oder PowerPoint länger als 45 Sekunden zum Speichern, zeigt ein kleines Fenster oben rechts, dass noch gespeichert wird – bitte dann das Dokument nicht schließen und den Mac nicht zuklappen. Danach erscheint kurz „Alles gespeichert“.
+- **Excel und PowerPoint wie Word:** Lokal geöffnete Arbeitsmappen und Präsentationen aus OneDrive werden jetzt ebenfalls automatisch mit AutoSpeichern neu geöffnet. macOS fragt dafür einmalig, ob OneDrive Opener Excel bzw. PowerPoint steuern darf – bitte erlauben.
+- **OneDrive-App im Blick:** Läuft OneDrive nicht, ist es nicht angemeldet, ist der Speicher fast voll oder bleibt ein Upload hängen (z. B. weil OneDrive pausiert ist), zeigt die Menüleiste eine Warnung mit Knopf zum Öffnen von OneDrive.
+- **Genauere Messung bei langem Speichern:** Dateigröße und wie viel OneDrive, Office und andere Programme in der Zeit übers Netz übertragen haben – um zu klären, ob die OneDrive-App Office ausbremst.
+
 ## Neu in 1.5.0
 
 - **Speicherdauer messen:** Dauert es in Word oder PowerPoint lange, bis „Gespeichert“ erscheint, misst die App jetzt, wie lange jeder Speichervorgang braucht, und meldet lange Vorgänge automatisch an den Entwickler (nur mit Zustimmung zu Fehlerberichten). Dafür fragt sie einmalig nach der macOS-Freigabe „Bedienungshilfen“ – bitte in den Systemeinstellungen „OneDrive Opener“ einschalten. Gelesen wird nur die Titelleiste, keine Dokumentinhalte. Abschaltbar unter Einstellungen → Fehlerbehebung → Speichern.

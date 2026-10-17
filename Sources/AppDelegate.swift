@@ -18,8 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Connectivity.shared.start()
         HandlerGuard.shared.start()
-        WordIntegration.shared.start()
+        OfficeIntegration.shared.start()
         SaveMonitor.shared.start()
+        OneDriveHealth.shared.start()
         Updater.shared.start()
         Reporter.shared.start()
         // Das Neu-Signieren beim Übernehmen der Office-Symbole setzt Berechtigungen zurück –

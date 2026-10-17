@@ -37,8 +37,8 @@ final class SettingsModel: ObservableObject {
         didSet {
             guard wordIntegration != Settings.wordIntegration else { return }
             Settings.wordIntegration = wordIntegration
-            WordIntegration.shared.settingsChanged()
-            Log.info("Word-Integration \(wordIntegration ? "ein" : "aus")")
+            OfficeIntegration.shared.settingsChanged()
+            Log.info("Office-Integration \(wordIntegration ? "ein" : "aus")")
         }
     }
     @Published var autoUpdate: Bool {
@@ -62,6 +62,13 @@ final class SettingsModel: ObservableObject {
             Log.info("Speicherdauer messen \(measureSaving ? "ein" : "aus")")
             SaveMonitor.shared.settingsChanged()
             if measureSaving && !SaveMonitor.shared.isTrusted { SaveMonitor.shared.requestPermission() }
+        }
+    }
+    @Published var saveWarning: Bool {
+        didSet {
+            guard saveWarning != Settings.saveWarning else { return }
+            Settings.saveWarning = saveWarning
+            Log.info("Hinweis bei langem Speichern \(saveWarning ? "ein" : "aus")")
         }
     }
     @Published var saveStatus = ""
@@ -110,6 +117,7 @@ final class SettingsModel: ObservableObject {
         autoUpdate = Settings.autoUpdate
         sendReports = Settings.sendReports
         measureSaving = Settings.measureSaving
+        saveWarning = Settings.saveWarning
         waitSeconds = Settings.syncWaitSeconds
         openMethod = Settings.openMethod
         mappings = Settings.manualMappings
@@ -127,9 +135,10 @@ final class SettingsModel: ObservableObject {
         autoUpdate = Settings.autoUpdate
         sendReports = Settings.sendReports
         measureSaving = Settings.measureSaving
+        saveWarning = Settings.saveWarning
         saveStatus = SaveMonitor.shared.status
         saveTrusted = SaveMonitor.shared.isTrusted
-        wordStatus = WordIntegration.shared.status
+        wordStatus = OfficeIntegration.shared.status
         updateStatus = Updater.shared.status
         handlers = DefaultHandler.statusRows()
         guardStatus = HandlerGuard.shared.statusText
@@ -355,10 +364,10 @@ struct GeneralTab: View {
             Section {
                 Toggle("Lokal geöffnete Dokumente automatisch mit AutoSpeichern öffnen", isOn: $model.wordIntegration)
             } header: {
-                Text("Word")
+                Text("Word, Excel und PowerPoint")
             } footer: {
                 Caption(model.wordStatus.hasPrefix("keine Berechtigung")
-                    ? "Word lässt sich nicht steuern: " + model.wordStatus
+                    ? "Office lässt sich nicht steuern: " + model.wordStatus
                     : "Auch für Dokumente aus „Zuletzt verwendet“, dem Dock oder nach „Speichern unter“ in den OneDrive-Ordner. Ungespeicherte Änderungen werden nie verworfen.")
             }
 
@@ -549,6 +558,8 @@ struct TroubleshootingTab: View {
 
             Section {
                 Toggle("Speicherdauer in Word, Excel und PowerPoint messen", isOn: $model.measureSaving)
+                Toggle("Hinweis zeigen, solange länger gespeichert wird", isOn: $model.saveWarning)
+                    .disabled(!model.measureSaving)
                 HStack {
                     Caption(model.saveStatus)
                     Spacer()

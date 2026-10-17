@@ -235,7 +235,8 @@ enum FileOpener {
         }
         Log.info("Öffne lokal mit \(app.displayName): \(file.path)")
         AppState.recordOpen(file, online: false)
-        WordIntegration.shared.keepLocal(file)
+        OfficeIntegration.shared.keepLocal(file)
+        OneDriveHealth.shared.watch(file)
         NSWorkspace.shared.open([file], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
             if let error { Log.error("Lokales Öffnen fehlgeschlagen: \(error.localizedDescription)") }
         }

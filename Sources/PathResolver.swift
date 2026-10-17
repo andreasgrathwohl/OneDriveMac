@@ -46,6 +46,30 @@ enum PathResolver {
         return nil
     }
 
+    /// Umkehrung von `resolve`: lokale Datei zu einer Online-Adresse (z. B. `full name` eines Cloud-Dokuments
+    /// in Word). `nil`, wenn kein Sync-Ordner passt oder ein Name lokal nicht zu finden ist.
+    static func localFile(forCloudURL address: String) -> URL? {
+        let decoded = address.removingPercentEncoding ?? address
+        let roots = allRoots().compactMap { root -> (root: SyncRoot, base: String)? in
+            guard let base = encodeBase(root.webURL) else { return nil }
+            return (root, base.removingPercentEncoding ?? base)
+        }.sorted { $0.base.count > $1.base.count }
+        for (root, base) in roots where decoded.lowercased().hasPrefix(base.lowercased() + "/") {
+            var url = URL(fileURLWithPath: root.localPath, isDirectory: true)
+            for component in decoded.dropFirst(base.count + 1).split(separator: "/").map(String.init) {
+                let wanted = component.precomposedStringWithCanonicalMapping
+                let children = (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
+                guard let match = children.first(where: {
+                    onlineName($0).precomposedStringWithCanonicalMapping.caseInsensitiveCompare(wanted) == .orderedSame
+                        || $0.precomposedStringWithCanonicalMapping.caseInsensitiveCompare(wanted) == .orderedSame
+                }) else { return nil }
+                url.appendPathComponent(match)
+            }
+            return url
+        }
+        return nil
+    }
+
     private static let unknownOnlineCharacters = CharacterSet(charactersIn: "\"*<>?\\|")
 
     /// Name in OneDrive online: gelernte Schreibweise, sonst bei Sonderzeichen Nachschlagen in der

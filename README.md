@@ -260,10 +260,10 @@ Die Protokolldatei liegt unter `~/Library/Logs/OneDriveOpener/OneDriveOpener.log
 Ab 2 MB wird sie automatisch nach `OneDriveOpener.1.log` im selben Ordner rotiert,
 damit sie nicht unbegrenzt wächst.
 
-## Word-Integration
+## Office-Integration (Word, Excel, PowerPoint)
 
-Während Word in den Vordergrund kommt, fragt OneDrive Opener per AppleScript (kein Makro-Add-in
-nötig) alle paar Sekunden nach, welche Dokumente gerade offen sind. Ein Dokument aus einem
+Während Word, Excel oder PowerPoint im Vordergrund ist, fragt OneDrive Opener per AppleScript (kein
+Makro-Add-in nötig) alle paar Sekunden nach, welche Dokumente gerade offen sind. Ein Dokument aus einem
 OneDrive-Ordner, das lokal geöffnet ist („Auf meinem Mac gespeichert") und keine ungespeicherten
 Änderungen hat, wird automatisch geschlossen und sofort mit AutoSpeichern aus der Cloud neu geöffnet.
 Das gilt auch für Dokumente, die über „Zuletzt verwendet", das Dock, Spotlight oder „Speichern unter"
@@ -273,12 +273,16 @@ Dokumente mit ungespeicherten Änderungen werden nicht angefasst. Dateien, die b
 wurden (⌥ beim Doppelklick oder Dialog „Ohne AutoSpeichern öffnen"), bleiben lokal. Ist OneDrive
 noch dabei, die Datei hochzuladen (max. 2 Minuten Wartezeit), wartet die App ab.
 
-**Einstellung**: **Einstellungen → Allgemein → Word → „Lokal geöffnete Dokumente automatisch mit
-AutoSpeichern öffnen"** (standardmäßig an). Aktuell nur Word; Excel und PowerPoint folgen evtl. später.
+Nebenbei liefern die Online-Adressen der Cloud-Dokumente die lokale Datei – so kennt die
+[Speicher-Messung](#speicherdauer-messen) die Dateigröße auch bei Dokumenten, die nicht über
+OneDrive Opener geöffnet wurden.
 
-**macOS-Berechtigung**: Beim ersten Öffnen fragt macOS „OneDrive Opener möchte Microsoft Word steuern"
-– erlauben. Falls abgelehnt: **Systemeinstellungen → Datenschutz & Sicherheit → Automation → OneDrive Opener
-→ Microsoft Word** hakchen.
+**Einstellung**: **Einstellungen → Allgemein → Word, Excel und PowerPoint → „Lokal geöffnete Dokumente
+automatisch mit AutoSpeichern öffnen"** (standardmäßig an, MDM-Schlüssel `WordIntegration`).
+
+**macOS-Berechtigung**: Einmal je App fragt macOS „OneDrive Opener möchte Microsoft Word (Excel,
+PowerPoint) steuern" – erlauben. Falls abgelehnt: **Systemeinstellungen → Datenschutz & Sicherheit →
+Automation → OneDrive Opener → Microsoft Word / Excel / PowerPoint** einschalten.
 
 ## Speicherdauer messen
 
@@ -291,11 +295,16 @@ und PowerPoint mit („Wird gespeichert…“, „Hochladen ausstehend“, „Ge
 jeder Speichervorgang dauert. Gelesen wird nur der Bereich der Titelleiste, nie der Dokumentinhalt.
 Die Zeit im Ruhezustand wird nicht mitgezählt, Zeit ohne Netz wird gesondert ausgewiesen.
 
+- **Hinweis oben rechts:** Speichert ein Dokument länger als 45 Sekunden, erscheint ein kleines
+  Fenster „Word speichert … – bitte nicht schließen und den Mac nicht zuklappen“, danach kurz „Alles
+  gespeichert“. Wird ein Dokument geschlossen, während Office noch speichert, weist das Fenster darauf
+  hin, die letzte Änderung zu prüfen. Abschaltbar (MDM-Schlüssel `SaveWarning`).
 - **Protokoll:** jeder Vorgang ab 10 Sekunden.
 - **Berichte (nur mit Zustimmung zu Fehlerberichten), automatisch an den Berichts-Server:**
   - `slow_save` – Speichervorgang ab 2 Minuten (und einmal, wenn er nach 10 Minuten noch läuft), mit
     Office-Version, Netzwerkart, gelesenen Statustexten und ob das Dokument über OneDrive Opener oder
-    anders (z. B. „Zuletzt verwendet“) geöffnet wurde.
+    anders (z. B. „Zuletzt verwendet“) geöffnet wurde, Dateigröße und – über `nettop` – wie viel
+    OneDrive, Office und andere Programme in der Zeit übertragen haben (belegt die OneDrive-App das Netz?).
   - `save_stats` – alle 3 Stunden eine Übersicht aller Vorgänge (Median, 90 %, Maximum, getrennt nach
     „über die App geöffnet“ / „anders geöffnet“).
   - `save_probe` – je Office-App, -Version und erkanntem Zustand einmal die gelesenen Titelleisten-Texte,
@@ -309,6 +318,19 @@ Da die App ad-hoc signiert ist, wird die Freigabe nach jedem Update ungültig �
 entfernt den alten Eintrag und fragt erneut.
 
 **Einstellung:** **Einstellungen → Fehlerbehebung → Speichern** (standardmäßig an).
+
+## OneDrive-App überwachen
+
+OneDrive Opener prüft jede Minute, ob die OneDrive-App arbeiten kann, und zeigt Probleme in der
+Menüleiste (orange Wolke mit Ausrufezeichen, mit Knopf „OneDrive starten“ bzw. „OneDrive öffnen“):
+
+- **OneDrive läuft nicht** (länger als 3 Minuten),
+- **OneDrive ist nicht eingerichtet** (läuft, aber kein OneDrive-Ordner),
+- **Speicher fast voll** (unter 2 GB frei – OneDrive kann nichts mehr herunterladen),
+- **OneDrive lädt nicht hoch**: Eine lokal geöffnete Datei aus OneDrive wartet seit 15 Minuten auf den
+  Upload, obwohl Internet da ist. Ob OneDrive pausiert ist, verrät die App nicht direkt – so zeigt es sich.
+
+Jeder Wechsel geht (mit Zustimmung zu Fehlerberichten) als Bericht `onedrive_health` an den Server.
 
 ## Automatische Updates
 
@@ -453,11 +475,12 @@ daher zentral per Konfigurationsprofil vorgeben. Verwendete Schlüssel:
 | `ManualMappings`     | Array von Dictionaries, je `{“localPath”: “...”, “webURL”: “...”}` | manuelle Ordner-Zuordnungen | `[]` (leer) |
 | `KeepDefaultHandler` | Bool               | Überwachung der Standard-App-Zuordnung (siehe „Schutz vor Office-Updates”) ein-/ausschalten | `false` |
 | `UseGuessedMappings` | Bool               | Geschätzte Zuordnungen trotzdem online öffnen           | `false`  |
-| `WordIntegration`    | Bool               | Lokal geöffnete Word-Dokumente automatisch mit AutoSpeichern neu öffnen | `true`   |
+| `WordIntegration`    | Bool               | Lokal geöffnete Word-, Excel- und PowerPoint-Dokumente automatisch mit AutoSpeichern neu öffnen | `true`   |
 | `AutoUpdate`         | Bool               | Neue Versionen aus GitHub-Releases automatisch installieren | `true`   |
 | `UpdateRepository`   | String             | GitHub-Repository (`besitzer/name`) für Updates, z. B. für einen Fork | `”andreasgrathwohl/OneDriveMac”` |
 | `OpenMethod`         | String             | Methode zum Öffnen: `officeURI` (default), `appleEvent`, oder `webURL` | `”officeURI”` |
 | `MeasureSaving`      | Bool               | Speicherdauer in Office messen (siehe „Speicherdauer messen“) | `true`   |
+| `SaveWarning`        | Bool               | Hinweisfenster, solange Office länger als 45 s speichert | `true`   |
 | `SendReports`        | Bool               | Fehlerberichte automatisch senden (wird per Zustimmungsdialog abgefragt) | `false`  |
 | `ReportEndpoint`     | String             | Server-Adresse für Fehlerberichte                       | `"https://onedrivemac.grathwohl.dev"` |
 
@@ -552,6 +575,7 @@ Gesendet werden nur nach Zustimmung durch einen einmaligen Dialog „Fehlerberic
 - **Start-Ereignis**: Beim Start der App.
 - **Gelernte Online-Schreibweisen**: Lokal erkannte Namen von OneDrive-Dateien und deren Schreibweise online.
 - **Speicher-Messungen**: `slow_save`, `save_stats`, `save_probe`, `save_monitor` (siehe „Speicherdauer messen“).
+- **Zustand der OneDrive-App**: `onedrive_health` bei jedem Wechsel (siehe „OneDrive-App überwachen“).
 - **Vollständige Diagnose**: Nur auf externe Anfrage.
 
 **Nicht gesendet werden Dokumentinhalte**.

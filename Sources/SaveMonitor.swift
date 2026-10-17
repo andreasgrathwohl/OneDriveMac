@@ -11,6 +11,9 @@ import ApplicationServices
 /// - `save_stats`: alle 3 Stunden eine Übersicht aller gemessenen Vorgänge
 /// - `save_probe`: je Office-App, -Version und Zustand einmal die gelesenen Titelleisten-Texte (prüft die Erkennung)
 /// - `save_monitor`: Freigabe erteilt, abgelehnt oder fehlt
+///
+/// Dauert ein Vorgang länger als 45 s, zeigt ein kleines Fenster oben rechts, dass noch gespeichert wird
+/// (`SaveNotice`) – damit das Dokument nicht vorher geschlossen oder der Mac zugeklappt wird.
 @MainActor
 final class SaveMonitor {
     static let shared = SaveMonitor()
@@ -25,6 +28,9 @@ final class SaveMonitor {
         /// Seit wann keine Speicheranzeige mehr zu sehen ist.
         var quietSince: Date?
         var reportedRunning = false
+        /// Netzwerk-Momentaufnahme ab 20 s Dauer (Vergleich beim Bericht, siehe `NetworkUsage`).
+        var network: NetworkUsage.Snapshot?
+        var networkRequested = false
     }
 
     private struct OpenedFile {
@@ -48,8 +54,17 @@ final class SaveMonitor {
     private var slowReportsToday = 0
     private var reportDay = Calendar.current.startOfDay(for: Date())
     private var reportedMissing = false
+    /// Lokale Datei je Dokumentname, aus den Online-Adressen offener Cloud-Dokumente (`noteCloudDocument`).
+    private var cloudFiles: [String: URL] = [:]
+    private var lookedUp = Set<String>()
+    private let notice = SaveNotice()
+    /// Hinweisfenster vom Anwender geschlossen – erst beim nächsten langen Vorgang wieder zeigen.
+    private var noticeDismissed = false
+    private var noticeShown = false
 
-    private init() {}
+    private init() {
+        notice.onClose = { SaveMonitor.shared.noticeDismissed = true }
+    }
 
     func start() {
         let center = NSWorkspace.shared.notificationCenter
@@ -89,6 +104,14 @@ final class SaveMonitor {
         if opened.count > 100, let oldest = opened.min(by: { $0.value.date < $1.value.date })?.key {
             opened[oldest] = nil
         }
+    }
+
+    /// Online-Adresse eines offenen Cloud-Dokuments (von `OfficeIntegration`) – liefert die lokale Datei
+    /// und damit die Dateigröße auch für Dokumente, die nicht über OneDrive Opener geöffnet wurden.
+    func noteCloudDocument(_ address: String) {
+        guard lookedUp.insert(address).inserted else { return }
+        guard let file = PathResolver.localFile(forCloudURL: address) else { return }
+        cloudFiles[Self.nameKey(file.lastPathComponent)] = file
     }
 
     // MARK: - Freigabe „Bedienungshilfen“
@@ -191,6 +214,10 @@ final class SaveMonitor {
 
     private func willSleep() {
         sleepingSince = Date()
+        let now = Date()
+        for episode in episodes.values where duration(episode, until: now) >= 10 {
+            Log.info("Speichern: Mac schläft ein, während „\(episode.document)“ (\(episode.app.displayName)) noch gespeichert wird")
+        }
     }
 
     private func didWake() {
@@ -253,6 +280,13 @@ final class SaveMonitor {
                     Log.info("Speichern: „\(episode.document)“ (\(episode.app.displayName)) läuft seit \(Self.format(duration(episode, until: now)))")
                     report(episode, until: now, outcome: "läuft noch")
                 }
+                if !episode.networkRequested, duration(episode, until: now) >= 20 {
+                    episode.networkRequested = true
+                    Task {
+                        let snapshot = await NetworkUsage.take()
+                        self.episodes[key]?.network = snapshot
+                    }
+                }
                 episodes[key] = episode
             case .saved, .local:
                 if let episode = episodes.removeValue(forKey: key) {
@@ -274,8 +308,37 @@ final class SaveMonitor {
         for (key, episode) in episodes where !seen.contains(key) {
             episodes[key] = nil
             finish(episode, at: now, outcome: "Fenster geschlossen, bevor „Gespeichert“ erschien")
+            if duration(episode, until: now) >= 10, Settings.saveWarning {
+                notice.show("„\(episode.document)“ wurde geschlossen, während \(episode.app.displayName) noch gespeichert hat. "
+                    + "Öffne das Dokument erneut und prüfe, ob die letzte Änderung angekommen ist.",
+                    symbol: "exclamationmark.triangle.fill", color: .systemOrange, hideAfter: 30)
+                noticeShown = false
+            }
         }
         SaveMonitorSnapshot.lines = lines
+        updateNotice(now)
+    }
+
+    /// Hinweis, solange ein Dokument länger als 45 s speichert; danach kurz „Alles gespeichert“.
+    private func updateNotice(_ now: Date) {
+        let long = episodes.values.filter { duration($0, until: now) >= 45 }
+            .sorted { $0.start < $1.start }
+        guard Settings.saveWarning, let first = long.first else {
+            if noticeShown {
+                noticeShown = false
+                if !noticeDismissed {
+                    notice.show("Alles gespeichert.", symbol: "checkmark.circle.fill", color: .systemGreen, hideAfter: 3)
+                }
+            }
+            noticeDismissed = false
+            return
+        }
+        guard !noticeDismissed else { return }
+        noticeShown = true
+        let more = long.count > 1 ? " (und \(long.count - 1) weitere)" : ""
+        notice.show("\(first.app.displayName) speichert „\(first.document)“\(more) seit \(Self.format(duration(first, until: now))). "
+            + "Bitte das Dokument nicht schließen und den Mac nicht zuklappen.",
+            symbol: "icloud.and.arrow.up", color: .systemBlue, hideAfter: nil)
     }
 
     private func duration(_ episode: Episode, until end: Date) -> TimeInterval {
@@ -285,7 +348,8 @@ final class SaveMonitor {
     private func finish(_ episode: Episode, at end: Date, outcome: String) {
         let seconds = duration(episode, until: end)
         let via = openedFile(episode.document) != nil
-        SaveStats.record(app: episode.app, document: episode.document, seconds: seconds, outcome: outcome, viaApp: via)
+        SaveStats.record(app: episode.app, document: episode.document, seconds: seconds, outcome: outcome, viaApp: via,
+                         sizeKB: localFile(episode.document).flatMap(Self.sizeKB))
         measuredCount += 1
         lastResult = "„\(episode.document)“ \(Self.format(seconds))"
         updateTrust()
@@ -326,16 +390,34 @@ final class SaveMonitor {
         if let file = openedFile(episode.document) {
             let minutes = Int(Date().timeIntervalSince(file.date) / 60)
             details["opened_by_app"] = "ja, vor \(minutes) Min. (\(file.method))"
-            details["local_path"] = file.file.path
-            if let size = (try? file.file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
-                details["file_size_kb"] = size / 1024
-            }
         } else {
             details["opened_by_app"] = "nein (z. B. über „Zuletzt verwendet“ in Office)"
         }
-        Reporter.shared.send(kind: "slow_save",
-                             message: "„\(episode.document)“ (\(episode.app.displayName)): \(outcome) nach \(Self.format(seconds))",
-                             details: details)
+        if let file = localFile(episode.document) {
+            details["local_path"] = file.path
+            if let size = Self.sizeKB(file) { details["file_size_kb"] = size }
+        }
+        let message = "„\(episode.document)“ (\(episode.app.displayName)): \(outcome) nach \(Self.format(seconds))"
+        let start = episode.network
+        let collected = details
+        Task {
+            var payload = collected
+            if let start, let end = await NetworkUsage.take() {
+                payload["network_usage"] = NetworkUsage.describe(from: start, to: end)
+            } else {
+                payload["network_usage"] = "keine Messung (nettop nicht verfügbar)"
+            }
+            Reporter.shared.send(kind: "slow_save", message: message, details: payload)
+        }
+    }
+
+    /// Lokale Datei zum Dokumentnamen: über OneDrive Opener geöffnet oder aus der Online-Adresse in Office.
+    private func localFile(_ document: String) -> URL? {
+        openedFile(document)?.file ?? cloudFiles[Self.nameKey(document)]
+    }
+
+    private nonisolated static func sizeKB(_ file: URL) -> Int? {
+        (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map { $0 / 1024 }
     }
 
     /// Je Office-App, -Version und erkanntem Zustand einmal die gelesenen Texte melden – so lässt sich
@@ -572,16 +654,18 @@ enum TitleBarReader {
 
 /// Alle gemessenen Speichervorgänge bis zur nächsten Übersicht (`save_stats`), auch über Neustarts hinweg.
 enum SaveStats {
-    static func record(app: OfficeApp, document: String, seconds: TimeInterval, outcome: String, viaApp: Bool) {
+    static func record(app: OfficeApp, document: String, seconds: TimeInterval, outcome: String, viaApp: Bool, sizeKB: Int?) {
         var entries = Settings.saveStats
-        entries.append([
+        var entry: [String: Any] = [
             "t": Date().timeIntervalSince1970,
             "a": app.displayName,
             "d": document,
             "s": (seconds * 10).rounded() / 10,
             "o": outcome,
             "v": viaApp,
-        ])
+        ]
+        if let sizeKB { entry["k"] = sizeKB }
+        entries.append(entry)
         Settings.saveStats = Array(entries.suffix(3000))
     }
 
@@ -624,8 +708,9 @@ enum SaveStats {
         return entries.map { e in
             let date = Date(timeIntervalSince1970: e["t"] as? Double ?? 0)
             let via = e["v"] as? Bool == true ? "über App geöffnet" : "anders geöffnet"
+            let size = (e["k"] as? Int).map { kb in kb >= 1024 ? ", \(kb / 1024) MB" : ", \(kb) KB" } ?? ""
             return "\(formatter.string(from: date))  \(e["a"] as? String ?? "?")  „\(e["d"] as? String ?? "?")“  "
-                + "\(SaveMonitor.format(e["s"] as? Double ?? 0))  \(e["o"] as? String ?? "")  (\(via))"
+                + "\(SaveMonitor.format(e["s"] as? Double ?? 0))  \(e["o"] as? String ?? "")  (\(via)\(size))"
         }
     }
 }

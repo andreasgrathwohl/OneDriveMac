@@ -75,7 +75,7 @@ final class Updater {
                 // Ist dieselbe Version schon einmal gescheitert, nicht bei jedem Start erneut neu starten.
                 let failedBefore = UserDefaults.standard.string(forKey: Self.attemptedKey) == version
                 // Nicht mitten in einer Aktion neu starten (Dokument wird neu geöffnet, Dialog offen).
-                let idle = !WordIntegration.shared.isBusy && NSApp.modalWindow == nil
+                let idle = !OfficeIntegration.shared.isBusy && NSApp.modalWindow == nil
                 if userInitiated || (Settings.autoUpdate && !failedBefore && idle) { await install() }
             } else {
                 available = nil
