@@ -55,7 +55,7 @@ final class OneDriveHealth {
         }
     }
 
-    static let bundleIDs = ["com.microsoft.OneDrive", "com.microsoft.OneDrive-mac"]
+    nonisolated static let bundleIDs = ["com.microsoft.OneDrive", "com.microsoft.OneDrive-mac"]
 
     private(set) var problem: Problem?
     private var timer: Timer?
