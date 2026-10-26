@@ -61,6 +61,19 @@ final class SaveMonitor {
     /// Hinweisfenster vom Anwender geschlossen – erst beim nächsten langen Vorgang wieder zeigen.
     private var noticeDismissed = false
     private var noticeShown = false
+    /// Wann die Freigabe zuletzt angefragt wurde – ist sie 5 Min. später nicht aktiv, folgt eine Anleitung.
+    private var permissionRequestedAt: Date?
+    private var followUpShown = false
+    /// Ergebnis von `tccutil reset` (entfernt den Eintrag der alten Version) – für Protokoll und Bericht.
+    private var resetResult = "nicht versucht"
+
+    /// Anleitung für einen Eintrag, der noch zur alten Version gehört: Der Schalter steht dann auf „an“,
+    /// wirkt aber nicht. Hilft nur Entfernen und neu Hinzufügen.
+    private static let renewSteps = """
+    1. Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen öffnen.
+    2. „OneDrive Opener“ auswählen und unten mit „–“ entfernen – auch wenn der Schalter schon an ist.
+    3. Mit „+“ wieder hinzufügen (Programme → OneDrive Opener) und einschalten.
+    """
 
     private init() {
         notice.onClose = { SaveMonitor.shared.noticeDismissed = true }
@@ -110,7 +123,10 @@ final class SaveMonitor {
     /// und damit die Dateigröße auch für Dokumente, die nicht über OneDrive Opener geöffnet wurden.
     func noteCloudDocument(_ address: String) {
         guard lookedUp.insert(address).inserted else { return }
-        guard let file = PathResolver.localFile(forCloudURL: address) else { return }
+        guard let file = PathResolver.localFile(forCloudURL: address) else {
+            Log.info("Speicher-Messung: keine lokale Datei zu \(address) – Dateigröße unbekannt")
+            return
+        }
         cloudFiles[Self.nameKey(file.lastPathComponent)] = file
     }
 
@@ -133,9 +149,9 @@ final class SaveMonitor {
         if renew {
             alert.messageText = "Freigabe nach dem Update erneuern"
             alert.informativeText = """
-            Nach dem Update gilt die macOS-Freigabe „Bedienungshilfen“ für OneDrive Opener nicht mehr.
+            Nach dem Update gilt die macOS-Freigabe „Bedienungshilfen“ für OneDrive Opener nicht mehr – auch wenn der Schalter in den Systemeinstellungen noch an ist.
 
-            Nach Klick auf „Erneuern …“ öffnet macOS die Systemeinstellungen – dort „OneDrive Opener“ wieder einschalten.
+            \(Self.renewSteps)
             """
             alert.addButton(withTitle: "Erneuern …")
         } else {
@@ -166,10 +182,23 @@ final class SaveMonitor {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
             process.arguments = ["reset", "Accessibility", id]
+            let errors = Pipe()
             process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
-            if (try? process.run()) != nil { process.waitUntilExit() }
+            process.standardError = errors
+            if (try? process.run()) != nil {
+                let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                process.waitUntilExit()
+                resetResult = process.terminationStatus == 0
+                    ? "alter Eintrag entfernt"
+                    : "Entfernen fehlgeschlagen (Status \(process.terminationStatus)\(message.isEmpty ? "" : ": " + message))"
+            } else {
+                resetResult = "tccutil nicht startbar"
+            }
+            Log.info("Bedienungshilfen: \(resetResult)")
         }
+        permissionRequestedAt = Date()
+        followUpShown = false
         Log.info("Bedienungshilfen: Freigabe angefragt")
         _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
@@ -181,11 +210,40 @@ final class SaveMonitor {
         guard Settings.measureSaving, !AXIsProcessTrusted(), !reportedMissing else { return }
         reportedMissing = true
         Reporter.shared.send(kind: "save_monitor", message: "Freigabe „Bedienungshilfen“ fehlt – keine Messung",
-                             details: ["asked": Settings.accessibilityAsked])
+                             details: ["asked": Settings.accessibilityAsked, "reset": resetResult])
+    }
+
+    /// Einmal je Anfrage: Ist die Freigabe 5 Minuten danach noch nicht aktiv, steht der Schalter vermutlich
+    /// schon auf „an“ (Eintrag der alten Version). Dann die Schritte zum Entfernen und neu Hinzufügen zeigen.
+    private func showFollowUp() {
+        guard !AXIsProcessTrusted(), Settings.measureSaving, NSApp.modalWindow == nil else { return }
+        Log.info("Bedienungshilfen: 5 Min. nach der Anfrage noch nicht aktiv – Anleitung angezeigt (\(resetResult))")
+        Reporter.shared.send(kind: "save_monitor", message: "Freigabe 5 Min. nach Anfrage nicht aktiv – Anleitung angezeigt",
+                             details: ["reset": resetResult])
+        let alert = NSAlert()
+        alert.messageText = "Freigabe „Bedienungshilfen“ ist noch nicht aktiv"
+        alert.informativeText = """
+        OneDrive Opener kann die Speicheranzeige von Word und PowerPoint noch nicht lesen. Steht der Schalter in den Systemeinstellungen schon auf „an“, gehört der Eintrag noch zur alten Version:
+
+        \(Self.renewSteps)
+        """
+        alert.addButton(withTitle: "Systemeinstellungen öffnen")
+        alert.addButton(withTitle: "Später")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func updateTrust() {
         let now = AXIsProcessTrusted()
+        if !now, !followUpShown, let requested = permissionRequestedAt, Date().timeIntervalSince(requested) >= 300 {
+            followUpShown = true
+            DispatchQueue.main.async {
+                Task { @MainActor in SaveMonitor.shared.showFollowUp() }
+            }
+        }
         if now != isTrusted {
             isTrusted = now
             if now {

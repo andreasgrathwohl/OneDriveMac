@@ -315,7 +315,9 @@ Die Zeit im Ruhezustand wird nicht mitgezählt, Zeit ohne Netz wird gesondert au
 **macOS-Freigabe:** Die App braucht „Bedienungshilfen“. Sie fragt einmalig danach; dann in
 **Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen** „OneDrive Opener“ einschalten.
 Da die App ad-hoc signiert ist, wird die Freigabe nach jedem Update ungültig – die App erkennt das,
-entfernt den alten Eintrag und fragt erneut.
+versucht den alten Eintrag zu entfernen (`tccutil`, Ergebnis im Protokoll) und fragt erneut. Steht der
+Schalter danach schon auf „an“, wirkt aber nicht, hilft nur: Eintrag mit „–“ entfernen, mit „+“ wieder
+hinzufügen. Ist die Freigabe 5 Minuten nach der Anfrage nicht aktiv, zeigt die App genau diese Schritte.
 
 **Einstellung:** **Einstellungen → Fehlerbehebung → Speichern** (standardmäßig an).
 

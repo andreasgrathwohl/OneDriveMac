@@ -1,3 +1,7 @@
+## Neu in 1.6.1
+
+- **Freigabe „Bedienungshilfen“ nach Updates:** Der Schalter in den Systemeinstellungen kann nach einem Update auf „an“ stehen, ohne zu wirken (er gehört noch zur alten Version). Die App erklärt jetzt die Schritte – Eintrag mit „–“ entfernen, mit „+“ wieder hinzufügen – und erinnert einmal, wenn die Freigabe 5 Minuten nach der Anfrage noch nicht aktiv ist.
+
 ## Neu in 1.6.0
 
 - **Hinweis beim Speichern:** Braucht Word, Excel oder PowerPoint länger als 45 Sekunden zum Speichern, zeigt ein kleines Fenster oben rechts, dass noch gespeichert wird – bitte dann das Dokument nicht schließen und den Mac nicht zuklappen. Danach erscheint kurz „Alles gespeichert“.
