@@ -8,7 +8,7 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
   python Tools/reports.py list [N]            letzte N Berichte (Standard 20)
   python Tools/reports.py errors [N]          letzte N Fehler
   python Tools/reports.py saves [N]           letzte N Speicher-Messungen (slow_save, save_stats,
-                                              save_probe, save_monitor) und OneDrive-Zustand
+                                              save_probe, save_monitor, save_guard) und OneDrive-Zustand
                                               (onedrive_health) mit den wichtigsten Werten
   python Tools/reports.py devices             Geräte mit Version und letzter Meldung
   python Tools/reports.py show ID             einen Bericht vollständig (Protokoll, Pfade)
@@ -141,7 +141,8 @@ def main(argv):
         items = records(token, 'kind ~ "save" || kind = "onedrive_health"', limit=limit)
         keys = ("duration_s", "outcome", "opened_by_app", "file_size_kb", "status_texts", "network",
                 "network_usage", "offline_s", "asleep_s", "office_version", "all", "via_app", "other", "buckets",
-                "state", "status_text", "texts", "detail", "before", "onedrive_folders")
+                "state", "status_text", "texts", "detail", "before", "onedrive_folders",
+                "problem", "title_state", "title_text", "saved", "unsaved_min", "open_min")
         out = []
         for r in items:
             out.append(table([r]))

@@ -315,10 +315,14 @@ final class SaveMonitor {
     private func process(_ windows: [TitleBarReader.Window], at now: Date, elapsed: TimeInterval) {
         var seen = Set<String>()
         var lines: [String] = []
+        var guardReadings: [SaveGuard.TitleReading] = []
         for window in windows {
             let reading = SaveIndicator.classify(window.texts, title: window.title)
             let key = window.app.rawValue + "|" + reading.document
             seen.insert(key)
+            let readable = window.texts.contains { $0.lowercased().contains("automatisches speichern") || $0.lowercased().contains("autosave") }
+            guardReadings.append(SaveGuard.TitleReading(app: window.app, document: reading.document, state: reading.state,
+                                                        text: reading.text, readable: readable))
             lines.append("\(window.app.displayName) „\(window.title)“: \(reading.state.rawValue)\(reading.text.map { " („\($0)“)" } ?? "")")
             probe(window, reading)
 
@@ -374,6 +378,7 @@ final class SaveMonitor {
             }
         }
         SaveMonitorSnapshot.lines = lines
+        SaveGuard.shared.titleBars(guardReadings)
         updateNotice(now)
     }
 
@@ -658,6 +663,8 @@ enum TitleBarReader {
             guard let windows = value(app, kAXWindowsAttribute) as? [AXUIElement] else { continue }
             for window in windows.prefix(20) {
                 guard let title = value(window, kAXTitleAttribute) as? String, !title.isEmpty else { continue }
+                // Im Dock abgelegte Fenster haben keine lesbare Titelleiste – sähe aus wie „keine Anzeige“.
+                if value(window, kAXMinimizedAttribute) as? Bool == true { continue }
                 if let subrole = value(window, kAXSubroleAttribute) as? String, subrole != kAXStandardWindowSubrole { continue }
                 result.append(Window(app: target.app, title: title, texts: texts(in: window)))
             }

@@ -7,14 +7,17 @@ import AppKit
 /// Statt eines Makro-Add-ins fragt die App die Office-App per AppleScript nach den offenen Dokumenten
 /// (`full name` ist bei Cloud-Dokumenten eine https-Adresse, sonst ein lokaler Pfad). Dokumente mit
 /// ungespeicherten Änderungen werden nie angefasst. Die Online-Adressen der Cloud-Dokumente gehen
-/// nebenbei an `SaveMonitor` (Dateigröße bei Speicher-Messungen).
+/// nebenbei an `SaveMonitor` (Dateigröße bei Speicher-Messungen) und – samt „saved“ – an `SaveGuard`, auch
+/// für Office-Apps im Hintergrund (jede Minute).
 @MainActor
 final class OfficeIntegration {
     static let shared = OfficeIntegration()
 
     private(set) var status = "aus"
     private var timer: Timer?
+    private var surveyTimer: Timer?
     private var busy = false
+    private var surveying = false
     private var denied = Set<OfficeApp>()
     /// Pfade, die bewusst lokal bleiben sollen (⌥-Öffnen, „Ohne AutoSpeichern öffnen“, Fehlschlag).
     private var localOnly: [String: Date] = [:]
@@ -33,6 +36,9 @@ final class OfficeIntegration {
         }
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
             Task { @MainActor in OfficeIntegration.shared.tick() }
+        }
+        surveyTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            Task { @MainActor in OfficeIntegration.shared.surveyAll() }
         }
         updateStatus()
     }
@@ -77,6 +83,34 @@ final class OfficeIntegration {
         Task {
             await check(app)
             busy = false
+        }
+    }
+
+    /// Offene Cloud-Dokumente aller laufenden Office-Apps an `SaveGuard` – auch, wenn die App nicht vorn ist.
+    private func surveyAll() {
+        guard Settings.wordIntegration, !surveying else { return }
+        let apps = OfficeApp.allCases.filter { app in
+            !denied.contains(app)
+                && NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).contains { !$0.isTerminated }
+        }
+        guard !apps.isEmpty else { return }
+        surveying = true
+        Task {
+            for app in apps {
+                let result = await AppleScriptRunner.run(Self.listScript(app))
+                if let output = result.output { SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output)) }
+            }
+            surveying = false
+        }
+    }
+
+    /// Online-Adresse und „saved“ der Cloud-Dokumente aus der Ausgabe von `listScript`.
+    private static func cloudDocuments(_ output: String) -> [(address: String, saved: Bool?)] {
+        output.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 3, parts[0].lowercased().hasPrefix("https://") else { return nil }
+            let saved: Bool? = parts[2] == "true" ? true : parts[2] == "false" ? false : nil
+            return (address: parts[0], saved: saved)
         }
     }
 
@@ -146,6 +180,7 @@ final class OfficeIntegration {
         }
         guard let output = result.output else { return }
         updateStatus()
+        SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output))
 
         var openLocal = Set<String>()
         for line in output.split(separator: "\n") {

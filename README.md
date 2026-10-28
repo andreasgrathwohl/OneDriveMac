@@ -227,6 +227,7 @@ Darüberfahren mit der Maus zeigt denselben Status als Text):
 | Wolke mit Häkchen (`checkmark.icloud`) | Aktiv – Online-Öffnen eingeschaltet, Standard-App-Zuordnung in Ordnung |
 | Wolke (`icloud`) | Bereit – nur über „Öffnen mit” aktiv; Doppelklick noch ohne AutoSpeichern |
 | Wolke mit Ausrufezeichen (`exclamationmark.icloud`) | Office hat den Doppelklick übernommen – Standard-App-Zuordnung wurde verloren |
+| Gefüllte Wolke mit Ausrufezeichen (`exclamationmark.icloud.fill`) | [Speicher-Wächter](#speicher-wächter): Office lädt ein Dokument offenbar nicht hoch |
 | Durchgestrichene Wolke (`icloud.slash`) | Pausiert – Online-Öffnen ist deaktiviert |
 
 ### Menü
@@ -320,6 +321,30 @@ Schalter danach schon auf „an“, wirkt aber nicht, hilft nur: Eintrag mit „
 hinzufügen. Ist die Freigabe 5 Minuten nach der Anfrage nicht aktiv, zeigt die App genau diese Schritte.
 
 **Einstellung:** **Einstellungen → Fehlerbehebung → Speichern** (standardmäßig an).
+
+### Speicher-Wächter
+
+Kann Office den Sync-Status eines Cloud-Dokuments nicht mehr ermitteln, fehlt die Anzeige in der
+Titelleiste ganz – Änderungen bleiben dann nur im (verschlüsselten) Office-Cache auf dem Mac und gehen
+beim „Sofort beenden“ oder Neuöffnen verloren, oft nach Tagen unbemerkter Arbeit. Gesunde Cloud-Dokumente
+zeigen dagegen immer „Gespeichert“, auch unbearbeitet. Der Wächter warnt bei:
+
+| Problem | Erkennung |
+|---|---|
+| keine Speicheranzeige | Cloud-Dokument, Titelleiste vollständig gelesen, aber 10 Min. lang kein Speicherstatus |
+| Speicherfehler | Office zeigt 30 s lang einen Fehlertext („Speichern nicht möglich“, „Upload fehlgeschlagen“ …) |
+| Speichern hängt | „Wird gespeichert…“ / „Hochladen ausstehend“ seit 15 Min. |
+| ungespeicherte Änderungen | AppleScript meldet `saved = false` seit 20 Min., ohne dass „Gespeichert“ erschien |
+
+Welche Dokumente Cloud-Dokumente sind, erfährt die App per AppleScript (`full name` ist eine
+https-Adresse) – jede Minute für alle laufenden Office-Apps, auch im Hintergrund (braucht die
+Office-Integration). Offline und im Ruhezustand läuft keine Uhr.
+
+Dann erscheint einmal je Vorfall (nach 60 Min. erneut) ein Dialog mit der Anleitung **Datei → Kopie
+speichern … auf den Schreibtisch, Office nicht sofort beenden** und dem Knopf „Zu PowerPoint wechseln“;
+die Menüleiste zeigt den Vorfall, bis er vorbei ist. Bericht `save_guard` beim Erkennen und beim Ende
+(„behoben“, „Dokument geschlossen“, „PowerPoint beendet“) mit Titelleisten-Zustand, `saved`-Wert und
+Online-Adresse. Dialog abschaltbar mit dem Schalter für Hinweise (MDM-Schlüssel `SaveWarning`).
 
 ## OneDrive-App überwachen
 

@@ -558,7 +558,7 @@ struct TroubleshootingTab: View {
 
             Section {
                 Toggle("Speicherdauer in Word, Excel und PowerPoint messen", isOn: $model.measureSaving)
-                Toggle("Hinweis zeigen, solange länger gespeichert wird", isOn: $model.saveWarning)
+                Toggle("Hinweise und Warnungen zum Speichern zeigen", isOn: $model.saveWarning)
                     .disabled(!model.measureSaving)
                 HStack {
                     Caption(model.saveStatus)
@@ -570,7 +570,7 @@ struct TroubleshootingTab: View {
             } header: {
                 Text("Speichern")
             } footer: {
-                Caption("Liest die Anzeige „Wird gespeichert…“ in der Titelleiste mit (macOS-Freigabe „Bedienungshilfen“). Lange Speichervorgänge werden protokolliert und – wenn Fehlerberichte erlaubt sind – automatisch gemeldet. Keine Dokumentinhalte.")
+                Caption("Liest die Anzeige „Wird gespeichert…“ in der Titelleiste mit (macOS-Freigabe „Bedienungshilfen“). Lange Speichervorgänge werden protokolliert und – wenn Fehlerberichte erlaubt sind – automatisch gemeldet. Fehlt bei einem Dokument in OneDrive „Gespeichert“ zu lange, warnt die App, bevor Änderungen verloren gehen. Keine Dokumentinhalte.")
             }
 
             Section {

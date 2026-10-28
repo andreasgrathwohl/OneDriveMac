@@ -168,7 +168,7 @@ enum Settings {
         set { defaults.set(newValue, forKey: "SaveStats") }
     }
 
-    /// Hinweisfenster zeigen, solange Office länger als 45 s speichert.
+    /// Hinweisfenster zeigen, solange Office länger als 45 s speichert, und Warnungen des `SaveGuard`.
     static var saveWarning: Bool {
         get { defaults.object(forKey: "SaveWarning") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "SaveWarning") }

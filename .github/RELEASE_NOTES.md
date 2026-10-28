@@ -1,5 +1,6 @@
-## Neu in 1.6.1
+## Neu in 1.7.0
 
+- **Speicher-Wächter:** Zeigt Word, Excel oder PowerPoint bei einem Dokument in OneDrive 10 Minuten lang nicht „Gespeichert“ an, meldet einen Speicherfehler oder speichert seit 15 Minuten, warnt die App deutlich: Die Änderungen kommen dann womöglich nicht in OneDrive an und können beim Beenden verloren gehen. Die Warnung erklärt, was zu tun ist – **Datei → Kopie speichern … auf den Schreibtisch, Office nicht „Sofort beenden“** – und wechselt auf Knopfdruck zur Office-App. Der Vorfall wird automatisch an den Entwickler gemeldet.
 - **Freigabe „Bedienungshilfen“ nach Updates:** Der Schalter in den Systemeinstellungen kann nach einem Update auf „an“ stehen, ohne zu wirken (er gehört noch zur alten Version). Die App erklärt jetzt die Schritte – Eintrag mit „–“ entfernen, mit „+“ wieder hinzufügen – und erinnert einmal, wenn die Freigabe 5 Minuten nach der Anfrage noch nicht aktiv ist.
 
 ## Neu in 1.6.0

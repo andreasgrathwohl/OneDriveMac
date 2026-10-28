@@ -5,12 +5,13 @@ import SwiftUI
 @MainActor
 enum UserStatus {
     enum Kind: Equatable {
-        case active, openWithOnly, problem, paused, offline, oneDrive
+        case active, openWithOnly, problem, paused, offline, oneDrive, saveGuard
     }
 
     static var kind: Kind {
         if !Settings.enabled { return .paused }
         if !Connectivity.shared.isOnline { return .offline }
+        if SaveGuard.shared.warning != nil { return .saveGuard }
         if AppState.handlerProblem != nil { return .problem }
         if OneDriveHealth.shared.problem != nil { return .oneDrive }
         let rows = DefaultHandler.statusRows()
@@ -26,6 +27,7 @@ enum UserStatus {
         case .paused: return "Pausiert"
         case .offline: return "Offline"
         case .oneDrive: return OneDriveHealth.shared.problem?.title ?? "OneDrive"
+        case .saveGuard: return SaveGuard.shared.warning?.title ?? "Office speichert nicht"
         }
     }
 
@@ -37,6 +39,7 @@ enum UserStatus {
         case .paused: return "Office-Dateien werden wie gewohnt ohne AutoSpeichern geöffnet."
         case .offline: return "Ohne Internet öffnen Dateien ohne AutoSpeichern. OneDrive lädt Änderungen später hoch."
         case .oneDrive: return OneDriveHealth.shared.problem?.subtitle ?? ""
+        case .saveGuard: return SaveGuard.shared.warning?.subtitle ?? ""
         }
     }
 
@@ -47,6 +50,7 @@ enum UserStatus {
         case .problem: return "Reparieren"
         case .paused: return "Fortsetzen"
         case .oneDrive: return OneDriveHealth.shared.problem?.actionTitle
+        case .saveGuard: return SaveGuard.shared.warning.map { "Zu \($0.app.displayName) wechseln" }
         }
     }
 
@@ -58,6 +62,7 @@ enum UserStatus {
         case .paused: return "icloud.slash"
         case .offline: return "wifi.slash"
         case .oneDrive: return "exclamationmark.icloud"
+        case .saveGuard: return "exclamationmark.icloud.fill"
         }
     }
 
@@ -66,6 +71,7 @@ enum UserStatus {
         case .active: return .systemGreen
         case .openWithOnly: return .systemBlue
         case .problem, .oneDrive: return .systemOrange
+        case .saveGuard: return .systemRed
         case .paused, .offline: return .systemGray
         }
     }
@@ -76,6 +82,8 @@ enum UserStatus {
             return
         case .oneDrive:
             OneDriveHealth.shared.performAction()
+        case .saveGuard:
+            SaveGuard.shared.performAction()
         case .paused:
             Settings.enabled = true
             Log.info("Fortgesetzt")
