@@ -4,6 +4,10 @@ Menüleisten-App für macOS, die Office-Dokumente aus OneDrive-/SharePoint-Sync-
 so öffnet, dass AutoSpeichern funktioniert – egal ob sie per Doppelklick im Finder oder
 über „Öffnen mit“ gestartet werden.
 
+[![OneDrive Opener in 15 Sekunden: Doppelklick ohne und mit AutoSpeichern](docs/onedrive-opener.gif)](docs/onedrive-opener.mp4)
+
+*Klick aufs Bild öffnet das Video in voller Auflösung.*
+
 ## Problem
 
 Wird eine Office-Datei (Word, Excel, PowerPoint) aus dem lokalen OneDrive-Ordner im
