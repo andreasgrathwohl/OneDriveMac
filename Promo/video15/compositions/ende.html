@@ -1,0 +1,154 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      font-family: var(--font-display, Inter), sans-serif;
+      color: var(--color-ink, #0b1b2e);
+    }
+    #e-bg {
+      position: absolute;
+      inset: 0;
+      background: var(--color-ground, #eaf0f7);
+    }
+    #e-icon {
+      position: absolute;
+      left: 770px;
+      top: 160px;
+      width: 380px;
+      height: 380px;
+      transform-origin: 190px 190px;
+    }
+    #e-icon svg {
+      width: 380px;
+      height: 380px;
+      display: block;
+      overflow: visible;
+    }
+    #e-solid {
+      position: absolute;
+      inset: 0;
+      background: var(--color-accent, #0a64d8);
+    }
+    #e-word {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 560px;
+      text-align: center;
+      font-size: 80px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 96px;
+      clip-path: inset(0 100% 0 0);
+    }
+    #e-cta {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 690px;
+      text-align: center;
+      font-size: 36px;
+      line-height: 52px;
+      opacity: 0;
+    }
+    #e-cta-a {
+      color: #3b4756;
+    }
+    #e-cta-b {
+      font-weight: 700;
+      color: var(--color-accent, #0a64d8);
+    }
+  </style>
+  <div data-hf-id="hf-by7d"
+    id="root"
+    data-composition-id="ende"
+    data-width="1920"
+    data-height="1080"
+    data-composition-variables='[
+      {"id":"ende-name","type":"string","label":"Name","default":"OneDrive Opener"},
+      {"id":"ende-cta","type":"string","label":"Zeile","default":"Kostenlos für macOS"},
+      {"id":"ende-url","type":"string","label":"Adresse","default":"github.com/andreasgrathwohl/OneDriveMac"}
+    ]'
+  >
+    <div data-hf-id="hf-mqt2" id="e-bg"></div>
+
+    <!-- App-Icon, 1:1 aus Tools/MakeIcon.swift übertragen (1024er Raster, y gespiegelt) -->
+    <div data-hf-id="hf-kr24" id="e-icon">
+      <svg data-hf-id="hf-aiuq" viewBox="0 0 1024 1024" aria-hidden="true">
+        <defs data-hf-id="hf-mh0t">
+          <linearGradient data-hf-id="hf-63p3" id="e-tile-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop data-hf-id="hf-qgm3" offset="0" stop-color="#3AA0FF" />
+            <stop data-hf-id="hf-tz94" offset="1" stop-color="#0A64D8" />
+          </linearGradient>
+          <linearGradient data-hf-id="hf-j2hz" id="e-gloss-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop data-hf-id="hf-tfk8" offset="0" stop-color="#ffffff" stop-opacity="0.16" />
+            <stop data-hf-id="hf-wfhg" offset="1" stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+          <clipPath data-hf-id="hf-7h9q" id="e-tile-clip"><rect data-hf-id="hf-eyxv" x="100" y="100" width="824" height="824" rx="185" /></clipPath>
+          <filter data-hf-id="hf-sdkt" id="e-tile-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow data-hf-id="hf-h2nn" dx="0" dy="14" stdDeviation="14" flood-color="#000000" flood-opacity="0.35" />
+          </filter>
+          <filter data-hf-id="hf-k32t" id="e-doc-shadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow data-hf-id="hf-82jd" dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.22" />
+          </filter>
+          <filter data-hf-id="hf-5zc6" id="e-badge-shadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow data-hf-id="hf-n69l" dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.25" />
+          </filter>
+        </defs>
+        <g data-hf-id="hf-87uh" id="e-tile">
+          <rect data-hf-id="hf-mswb" x="100" y="100" width="824" height="824" rx="185" fill="#000000" filter="url(#e-tile-shadow)" />
+          <g data-hf-id="hf-oxjq" clip-path="url(#e-tile-clip)">
+            <rect data-hf-id="hf-1v2a" x="100" y="100" width="824" height="824" fill="url(#e-tile-grad)" />
+            <rect data-hf-id="hf-12p7" x="100" y="100" width="824" height="412" fill="url(#e-gloss-grad)" />
+          </g>
+        </g>
+        <g data-hf-id="hf-1d8p" id="e-cloud" fill="#ffffff">
+          <rect data-hf-id="hf-inw3" x="270" y="444" width="460" height="160" rx="80" />
+          <circle data-hf-id="hf-guw2" cx="365" cy="479" r="95" />
+          <circle data-hf-id="hf-nw45" cx="490" cy="424" r="125" />
+          <circle data-hf-id="hf-i5pb" cx="610" cy="474" r="100" />
+          <circle data-hf-id="hf-vvon" cx="665" cy="524" r="65" />
+        </g>
+        <g data-hf-id="hf-h6ix" id="e-doc">
+          <path data-hf-id="hf-0sng" d="M560 754 L740 754 L740 596 L698 554 L560 554 Z" fill="#ffffff" filter="url(#e-doc-shadow)" />
+          <path data-hf-id="hf-a82m" d="M698 554 L740 596 L698 596 Z" fill="#BFE0FF" />
+        </g>
+        <g data-hf-id="hf-ryde" id="e-badge">
+          <circle data-hf-id="hf-xx6p" cx="770" cy="794" r="90" fill="#30C24A" filter="url(#e-badge-shadow)" />
+          <path data-hf-id="hf-ne0h" id="e-check" d="M728 792 L760 824 L815 756" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="140" stroke-dashoffset="140" />
+        </g>
+      </svg>
+    </div>
+
+    <div data-hf-id="hf-djts" id="e-solid"></div>
+
+    <div data-hf-id="hf-qoe3" id="e-word" data-var-text="ende-name">OneDrive Opener</div>
+    <div data-hf-id="hf-pisn" id="e-cta">
+      <div data-hf-id="hf-nf00" id="e-cta-a" data-var-text="ende-cta">Kostenlos für macOS</div>
+      <div data-hf-id="hf-hkyy" id="e-cta-b" data-var-text="ende-url">github.com/andreasgrathwohl/OneDriveMac</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+
+      // Das Schalterblau zieht sich zur Icon-Kachel zusammen
+      tl.fromTo("#e-solid", { opacity: 1 }, { opacity: 0, duration: 0.25, ease: "power2.out" }, 0);
+      tl.fromTo("#e-icon", { scale: 8 }, { scale: 1, duration: 0.8, ease: "expo.out" }, 0);
+
+      // Wolke, Dokument, Badge, Häkchen
+      tl.fromTo("#e-cloud", { opacity: 0, scale: 0.85, svgOrigin: "500 500" }, { opacity: 1, scale: 1, svgOrigin: "500 500", duration: 0.4, ease: "expo.out" }, 0.45);
+      tl.fromTo("#e-doc", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.4, ease: "expo.out" }, 0.6);
+      tl.fromTo("#e-badge", { scale: 0, svgOrigin: "770 794" }, { scale: 1, svgOrigin: "770 794", duration: 0.45, ease: "back.out(1.6)" }, 0.85);
+      tl.fromTo("#e-check", { strokeDashoffset: 140 }, { strokeDashoffset: 0, duration: 0.25, ease: "power2.out" }, 1.0);
+
+      // Wortmarke wischt ein, dann die Adresse
+      tl.fromTo("#e-word", { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 0.45, ease: "power3.out" }, 1.1);
+      tl.fromTo("#e-cta", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 1.5);
+
+      window.__timelines["ende"] = tl;
+    })();
+  </script>
+</template>

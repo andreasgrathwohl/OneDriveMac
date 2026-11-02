@@ -1,0 +1,236 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      font-family: var(--font-display, Inter), sans-serif;
+      color: var(--color-ink, #0b1b2e);
+    }
+    #m-bg {
+      position: absolute;
+      inset: 0;
+      background: var(--color-accent, #0a64d8);
+    }
+    #m-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 64px;
+      background: rgba(255, 255, 255, 0.9);
+      border-bottom: 1px solid rgba(11, 27, 46, 0.12);
+    }
+    #m-bar-app {
+      position: absolute;
+      left: 100px;
+      top: 0;
+      line-height: 64px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    #m-status {
+      position: absolute;
+      left: 1640px;
+      top: 8px;
+      width: 64px;
+      height: 48px;
+      border-radius: 10px;
+    }
+    #m-status-hl {
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;
+      background: rgba(11, 27, 46, 0.14);
+      opacity: 0;
+    }
+    #m-status svg {
+      position: absolute;
+      left: 10px;
+      top: 6px;
+      width: 44px;
+      height: 36px;
+    }
+    #m-clock {
+      position: absolute;
+      left: 1730px;
+      top: 0;
+      line-height: 64px;
+      font-size: 28px;
+      font-weight: 400;
+    }
+    #m-menu {
+      position: absolute;
+      left: 944px;
+      top: 74px;
+      width: 880px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(246, 247, 249, 0.98);
+      box-shadow: 0 24px 60px rgba(11, 27, 46, 0.32), 0 0 0 1px rgba(11, 27, 46, 0.1);
+      clip-path: inset(0 0 100% 0 round 18px);
+    }
+    .mi {
+      position: relative;
+      height: 56px;
+      line-height: 56px;
+      padding: 0 22px;
+      font-size: 30px;
+      font-weight: 400;
+    }
+    .mi .key {
+      position: absolute;
+      right: 22px;
+      top: 0;
+      color: #5b6676;
+    }
+    .sep {
+      height: 1px;
+      margin: 9px 22px;
+      background: rgba(11, 27, 46, 0.14);
+    }
+    #m-head {
+      position: relative;
+      height: 116px;
+      padding: 14px 22px 0 96px;
+    }
+    #m-head svg {
+      position: absolute;
+      left: 22px;
+      top: 26px;
+      width: 58px;
+      height: 46px;
+    }
+    #m-head-title {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 44px;
+    }
+    #m-head-sub {
+      font-size: 28px;
+      line-height: 36px;
+      color: #5b6676;
+    }
+    #m-copy {
+      position: absolute;
+      left: 140px;
+      top: 330px;
+      width: 820px;
+      color: #ffffff;
+    }
+    #m-kicker {
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 60px;
+      opacity: 0;
+    }
+    #m-name {
+      margin-top: 18px;
+      font-size: 150px;
+      font-weight: 900;
+      line-height: 150px;
+      letter-spacing: -0.03em;
+    }
+    #m-name .ch {
+      display: inline-block;
+      opacity: 0;
+    }
+    #m-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 42px;
+      height: 64px;
+      transform-origin: 0 0;
+    }
+    #m-cursor svg {
+      width: 42px;
+      height: 64px;
+      display: block;
+    }
+  </style>
+  <div data-hf-id="hf-vopn"
+    id="root"
+    data-composition-id="menue"
+    data-width="1920"
+    data-height="1080"
+    data-composition-variables='[
+      {"id":"menue-kicker","type":"string","label":"Zeile über dem Namen","default":"Neu in der Menüleiste:"}
+    ]'
+  >
+    <div data-hf-id="hf-0epa" id="m-bg"></div>
+
+    <div data-hf-id="hf-733c" id="m-copy">
+      <div data-hf-id="hf-fw49" id="m-kicker" data-var-text="menue-kicker">Neu in der Menüleiste:</div>
+      <div data-hf-id="hf-v73i" id="m-name"><span data-hf-id="hf-xbyp" class="ch">O</span><span data-hf-id="hf-gyhq" class="ch">n</span><span data-hf-id="hf-ol83" class="ch">e</span><span data-hf-id="hf-1pc0" class="ch">D</span><span data-hf-id="hf-c6te" class="ch">r</span><span data-hf-id="hf-frkn" class="ch">i</span><span data-hf-id="hf-ds1i" class="ch">v</span><span data-hf-id="hf-7x77" class="ch">e</span><br data-hf-id="hf-x5px" /><span data-hf-id="hf-fqyt" class="ch">O</span><span data-hf-id="hf-czfg" class="ch">p</span><span data-hf-id="hf-7iw6" class="ch">e</span><span data-hf-id="hf-j79e" class="ch">n</span><span data-hf-id="hf-74l5" class="ch">e</span><span data-hf-id="hf-ztuu" class="ch">r</span></div>
+    </div>
+
+    <div data-hf-id="hf-43dx" id="m-bar" data-layout-allow-overflow>
+      <div data-hf-id="hf-317c" id="m-bar-app">Finder</div>
+      <div data-hf-id="hf-h9k9" id="m-status">
+        <div data-hf-id="hf-wd4a" id="m-status-hl"></div>
+        <svg data-hf-id="hf-jz1b" viewBox="0 0 34 26" aria-hidden="true">
+          <path data-hf-id="hf-9xk3" d="M9 22.5 H25.5 a6.2 6.2 0 0 0 0.9 -12.33 A8.6 8.6 0 0 0 10.2 7.6 A7.4 7.4 0 0 0 9 22.5 Z" fill="none" stroke="#0b1b2e" stroke-width="2.2" stroke-linejoin="round" />
+          <path data-hf-id="hf-s9m3" d="M12.6 15.2 L15.9 18.4 L22 12" fill="none" stroke="#0b1b2e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <div data-hf-id="hf-1fyz" id="m-clock">9:41</div>
+    </div>
+
+    <div data-hf-id="hf-7hwy" id="m-menu">
+      <div data-hf-id="hf-e2nh" id="m-head">
+        <svg data-hf-id="hf-wujj" viewBox="0 0 34 26" aria-hidden="true">
+          <path data-hf-id="hf-svfi" d="M9 22.5 H25.5 a6.2 6.2 0 0 0 0.9 -12.33 A8.6 8.6 0 0 0 10.2 7.6 A7.4 7.4 0 0 0 9 22.5 Z" fill="none" stroke="#28a745" stroke-width="2" stroke-linejoin="round" />
+          <path data-hf-id="hf-ffto" d="M12.6 15.2 L15.9 18.4 L22 12" fill="none" stroke="#28a745" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <div data-hf-id="hf-nyf7" id="m-head-title">Aktiv</div>
+        <div data-hf-id="hf-m2pr" id="m-head-sub">Office-Dateien aus OneDrive öffnen mit AutoSpeichern.</div>
+      </div>
+      <div data-hf-id="hf-kpqk" class="sep"></div>
+      <div data-hf-id="hf-y61w" class="mi">Pausieren</div>
+      <div data-hf-id="hf-d2ec" class="sep"></div>
+      <div data-hf-id="hf-x6kh" class="mi">Einstellungen …<span data-hf-id="hf-whm2" class="key">⌘ ,</span></div>
+      <div data-hf-id="hf-8844" class="mi">Fehlerbehebung<span data-hf-id="hf-xuds" class="key">›</span></div>
+      <div data-hf-id="hf-bvh9" class="sep"></div>
+      <div data-hf-id="hf-ma00" class="mi">OneDrive Opener beenden<span data-hf-id="hf-wnhl" class="key">⌘ Q</span></div>
+    </div>
+
+    <div data-hf-id="hf-gw21" id="m-cursor">
+      <svg data-hf-id="hf-nfyd" viewBox="-2 -2 30 44" aria-hidden="true">
+        <path data-hf-id="hf-jrde" d="M0 0 L0 34 L8 26.5 L13.2 38.6 L18.4 36.4 L13.3 24.6 L24 24.6 Z" fill="#000000" stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round" />
+      </svg>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+
+      // Farbflut: der helle Grund wird Markenblau
+      tl.fromTo("#m-bg", { backgroundColor: "#eaf0f7" }, { backgroundColor: "#0a64d8", duration: 0.4, ease: "power2.inOut" }, 0);
+
+      // Menüleiste fährt ein
+      tl.fromTo("#m-bar", { y: -66 }, { y: 0, duration: 0.5, ease: "expo.out" }, 0.25);
+
+      // Zeiger zum Statussymbol, Klick
+      tl.fromTo("#m-cursor", { x: 1360, y: 900 }, { x: 1676, y: 34, duration: 0.6, ease: "power3.inOut" }, 0.45);
+      tl.to("#m-cursor", { scale: 0.88, duration: 0.05, ease: "power2.out" }, 1.08);
+      tl.to("#m-cursor", { scale: 1, duration: 0.08, ease: "power2.out" }, 1.13);
+      tl.set("#m-status-hl", { opacity: 1 }, 1.1);
+
+      // Menü klappt aus der Leiste auf
+      tl.fromTo("#m-menu", { clipPath: "inset(0px 0px 100% 0px round 18px)" }, { clipPath: "inset(0px 0px 0% 0px round 18px)", duration: 0.3, ease: "power3.out" }, 1.15);
+
+      // Links: Zeile, dann der Name Buchstabe für Buchstabe
+      tl.fromTo("#m-kicker", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18, ease: "power4.out" }, 1.5);
+      tl.fromTo("#m-name .ch", { opacity: 0, filter: "blur(4px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.12, ease: "power2.out", stagger: 0.025 }, 1.55);
+
+      // Abgang
+      tl.to("#m-menu", { clipPath: "inset(0px 0px 100% 0px round 18px)", duration: 0.15, ease: "power3.in" }, 3.25);
+      tl.set("#m-status-hl", { opacity: 0 }, 3.4);
+      tl.to(["#m-copy", "#m-cursor"], { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, 3.3);
+      tl.to("#m-bar", { y: -66, duration: 0.2, ease: "power3.in" }, 3.38);
+
+      window.__timelines["menue"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,336 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      font-family: var(--font-display, Inter), sans-serif;
+      color: var(--color-ink, #0b1b2e);
+    }
+    #n-bg {
+      position: absolute;
+      inset: 0;
+      background: var(--color-ground, #eaf0f7);
+    }
+    #n-path {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 220px;
+      text-align: center;
+      font-size: 30px;
+      font-weight: 400;
+      color: #5b6676;
+    }
+    #n-file {
+      position: absolute;
+      left: 760px;
+      top: 290px;
+      width: 400px;
+      height: 340px;
+    }
+    #n-file-icon {
+      position: absolute;
+      left: 100px;
+      top: 0;
+      width: 200px;
+      height: 250px;
+      border-radius: 18px;
+    }
+    #n-file-icon svg {
+      width: 200px;
+      height: 250px;
+      display: block;
+    }
+    #n-file-shade {
+      position: absolute;
+      left: 100px;
+      top: 0;
+      width: 200px;
+      height: 250px;
+      border-radius: 18px;
+      background: rgba(11, 27, 46, 0.12);
+      opacity: 0;
+    }
+    #n-file-name {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 272px;
+      text-align: center;
+    }
+    #n-file-name span {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 10px;
+      font-size: 34px;
+      font-weight: 400;
+      color: var(--color-ink, #0b1b2e);
+    }
+    #n-file-sel {
+      position: absolute;
+      left: 96px;
+      top: 270px;
+      width: 208px;
+      height: 52px;
+      border-radius: 10px;
+      background: var(--color-accent, #0a64d8);
+      opacity: 0;
+    }
+    #n-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 625px 205px;
+      opacity: 0;
+    }
+    #n-win {
+      position: absolute;
+      left: 160px;
+      top: 150px;
+      width: 1600px;
+      height: 560px;
+      border-radius: 22px;
+      background: #eef0f3;
+      overflow: hidden;
+      box-shadow: 0 30px 60px rgba(11, 27, 46, 0.18);
+      transform-origin: 800px 280px;
+    }
+    .tbar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1600px;
+      height: 110px;
+      background: #f7f8fa;
+      border-bottom: 1px solid #dadde2;
+    }
+    .lights {
+      position: absolute;
+      left: 36px;
+      top: 42px;
+      display: flex;
+      gap: 14px;
+    }
+    .lights i {
+      display: block;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+    }
+    .autosave {
+      position: absolute;
+      left: 170px;
+      top: 27px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 30px;
+      color: #3b4756;
+    }
+    .toggle {
+      position: relative;
+      width: 128px;
+      height: 56px;
+      border-radius: 28px;
+      background: #c9ced6;
+    }
+    .toggle .knob {
+      position: absolute;
+      left: 5px;
+      top: 5px;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 4px rgba(11, 27, 46, 0.25);
+    }
+    .toggle .ttxt {
+      position: absolute;
+      left: 60px;
+      top: 0;
+      width: 60px;
+      height: 56px;
+      line-height: 56px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: #3b4756;
+    }
+    .wtitle {
+      position: absolute;
+      left: 600px;
+      right: 40px;
+      top: 0;
+      height: 110px;
+      line-height: 110px;
+      text-align: center;
+      font-size: 32px;
+      white-space: nowrap;
+    }
+    .wtitle strong {
+      font-weight: 700;
+    }
+    .toggle.on {
+      background: var(--color-accent, #0a64d8);
+    }
+    .toggle.on .knob {
+      left: 77px;
+    }
+    .toggle.on .ttxt {
+      left: 10px;
+      color: #ffffff;
+    }
+    #n-flood {
+      position: absolute;
+      inset: 0;
+      background: var(--color-accent, #0a64d8);
+      clip-path: circle(0px at 625px 205px);
+    }
+    .page {
+      position: absolute;
+      left: 300px;
+      top: 150px;
+      width: 1000px;
+      height: 600px;
+      background: #ffffff;
+      box-shadow: 0 2px 10px rgba(11, 27, 46, 0.08);
+      padding: 70px 90px;
+    }
+    .page i {
+      display: block;
+      height: 18px;
+      border-radius: 9px;
+      background: #e1e5ea;
+      margin-bottom: 26px;
+    }
+    #n-head {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 860px;
+      text-align: center;
+      font-size: 64px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      opacity: 0;
+    }
+    #n-head-b {
+      color: var(--color-good, #1c8c36);
+    }
+    #n-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 42px;
+      height: 64px;
+      transform-origin: 0 0;
+    }
+    #n-cursor svg {
+      width: 42px;
+      height: 64px;
+      display: block;
+    }
+  </style>
+  <div data-hf-id="hf-0xqy"
+    id="root"
+    data-composition-id="nachher"
+    data-width="1920"
+    data-height="1080"
+    data-composition-variables='[
+      {"id":"nachher-zeile","type":"string","label":"Zeile","default":"Gleicher Doppelklick:"},
+      {"id":"nachher-akzent","type":"string","label":"Akzent","default":"AutoSpeichern an."},
+      {"id":"nachher-datei","type":"string","label":"Dateiname","default":"Angebot.docx"}
+    ]'
+  >
+    <div data-hf-id="hf-3mgv" id="n-bg"></div>
+
+    <div data-hf-id="hf-fzxz" id="n-path">OneDrive › Projekte</div>
+
+    <div data-hf-id="hf-ki8s" id="n-file">
+      <div data-hf-id="hf-kq52" id="n-file-icon">
+        <svg data-hf-id="hf-p7rl" viewBox="0 0 160 200" aria-hidden="true">
+          <path data-hf-id="hf-xvs4" d="M14 4 H110 L150 44 V190 a6 6 0 0 1 -6 6 H16 a6 6 0 0 1 -6 -6 V10 a6 6 0 0 1 4 -6 Z" fill="#ffffff" stroke="#c9ced6" stroke-width="3" />
+          <path data-hf-id="hf-mrya" d="M110 4 V38 a6 6 0 0 0 6 6 H150" fill="#e6ebf1" stroke="#c9ced6" stroke-width="3" />
+          <rect data-hf-id="hf-ydqr" x="34" y="62" width="92" height="9" rx="4.5" fill="#d5dbe3" />
+          <rect data-hf-id="hf-dkas" x="34" y="82" width="80" height="9" rx="4.5" fill="#d5dbe3" />
+          <rect data-hf-id="hf-9m7a" x="34" y="102" width="92" height="9" rx="4.5" fill="#d5dbe3" />
+          <rect data-hf-id="hf-0eaz" x="34" y="122" width="62" height="9" rx="4.5" fill="#d5dbe3" />
+          <text data-hf-id="hf-47co" x="80" y="178" text-anchor="middle" font-family="Inter, sans-serif" font-size="24" font-weight="700" fill="#5b6676">DOCX</text>
+        </svg>
+      </div>
+      <div data-hf-id="hf-8p00" id="n-file-shade"></div>
+      <div data-hf-id="hf-kapv" id="n-file-sel"></div>
+      <div data-hf-id="hf-2pz4" id="n-file-name"><span data-hf-id="hf-muto" id="n-file-label" data-var-text="nachher-datei">Angebot.docx</span></div>
+    </div>
+
+    <div data-hf-id="hf-5yak" id="n-cam" data-layout-allow-overflow>
+      <div data-hf-id="hf-pcsc" id="n-win">
+        <div data-hf-id="hf-635v" class="tbar">
+          <div data-hf-id="hf-05r3" class="lights">
+            <i data-hf-id="hf-dsrb" style="background: #ff5f57"></i><i data-hf-id="hf-417v" style="background: #febc2e"></i><i data-hf-id="hf-smrp" style="background: #28c840"></i>
+          </div>
+          <div data-hf-id="hf-spku" class="autosave">
+            <span data-hf-id="hf-q6pz">AutoSpeichern</span>
+            <span data-hf-id="hf-ffss" class="toggle on"><b data-hf-id="hf-9uel" class="knob"></b><span data-hf-id="hf-ol2r" class="ttxt">Ein</span></span>
+          </div>
+          <div data-hf-id="hf-gmtf" class="wtitle"><strong data-hf-id="hf-5476">Angebot</strong></div>
+        </div>
+        <div data-hf-id="hf-9tvl" class="page">
+          <i data-hf-id="hf-z7u0" style="width: 46%; height: 30px; background: #cfd5dd; margin-bottom: 44px"></i>
+          <i data-hf-id="hf-bnif" style="width: 100%"></i>
+          <i data-hf-id="hf-g4cf" style="width: 94%"></i>
+          <i data-hf-id="hf-u6wj" style="width: 98%"></i>
+          <i data-hf-id="hf-817a" style="width: 71%"></i>
+          <i data-hf-id="hf-c7vo" style="width: 100%; margin-top: 44px"></i>
+          <i data-hf-id="hf-4f1m" style="width: 88%"></i>
+        </div>
+      </div>
+    </div>
+
+    <div data-hf-id="hf-4oak" id="n-head"><span data-hf-id="hf-0pfc" id="n-head-a" data-var-text="nachher-zeile">Gleicher Doppelklick:</span> <span data-hf-id="hf-vcgl" id="n-head-b" data-var-text="nachher-akzent">AutoSpeichern an.</span></div>
+
+    <div data-hf-id="hf-v5xl" id="n-flood" data-layout-ignore></div>
+
+    <div data-hf-id="hf-mncg" id="n-cursor">
+      <svg data-hf-id="hf-nfyd" viewBox="-2 -2 30 44" aria-hidden="true">
+        <path data-hf-id="hf-jrde" d="M0 0 L0 34 L8 26.5 L13.2 38.6 L18.4 36.4 L13.3 24.6 L24 24.6 Z" fill="#000000" stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round" />
+      </svg>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+
+      // Farbflut zurück aus dem Blau der Menü-Szene
+      tl.fromTo("#n-bg", { backgroundColor: "#0a64d8" }, { backgroundColor: "#eaf0f7", duration: 0.35, ease: "power2.inOut" }, 0);
+      tl.fromTo(["#n-path", "#n-file"], { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out", stagger: 0.06 }, 0.2);
+
+      // Gleicher Weg, gleicher Doppelklick
+      tl.fromTo("#n-cursor", { x: 1580, y: 1040 }, { x: 968, y: 430, duration: 0.6, ease: "power3.inOut" }, 0.25);
+      [0.9, 1.1].forEach(function (t) {
+        tl.to("#n-cursor", { scale: 0.88, duration: 0.05, ease: "power2.out" }, t);
+        tl.to("#n-cursor", { scale: 1, duration: 0.08, ease: "power2.out" }, t + 0.05);
+      });
+      tl.set("#n-file-shade", { opacity: 1 }, 0.92);
+      tl.set("#n-file-sel", { opacity: 1 }, 0.92);
+      tl.set("#n-file-label", { color: "#ffffff" }, 0.92);
+
+      // Match-Cut: dasselbe Fenster, diesmal mit AutoSpeichern
+      tl.set(["#n-file", "#n-path", "#n-cursor"], { opacity: 0 }, 1.18);
+      tl.set("#n-cam", { opacity: 1 }, 1.18);
+      tl.fromTo("#n-win", { scale: 1.05 }, { scale: 1, duration: 0.5, ease: "expo.out" }, 1.18);
+
+      // Push auf den Schalter
+      tl.fromTo("#n-cam", { scale: 1 }, { scale: 1.12, duration: 0.6, ease: "power2.inOut" }, 1.7);
+      tl.fromTo("#n-head", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18, ease: "power4.out" }, 1.85);
+
+      // Durch den Schalter: sein Blau flutet das Bild
+      tl.to("#n-head", { opacity: 0, filter: "blur(8px)", duration: 0.15, ease: "power3.in" }, 3.4);
+      tl.to("#n-cam", { scale: 1.6, duration: 0.4, ease: "power3.in" }, 3.4);
+      tl.fromTo("#n-flood", { clipPath: "circle(0px at 625px 205px)" }, { clipPath: "circle(2600px at 625px 205px)", duration: 0.34, ease: "power3.in" }, 3.4);
+
+      window.__timelines["nachher"] = tl;
+    })();
+  </script>
+</template>

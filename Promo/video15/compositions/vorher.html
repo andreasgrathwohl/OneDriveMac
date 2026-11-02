@@ -1,0 +1,323 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      font-family: var(--font-display, Inter), sans-serif;
+      color: var(--color-ink, #0b1b2e);
+    }
+    #v-bg {
+      position: absolute;
+      inset: 0;
+      background: var(--color-ground, #eaf0f7);
+    }
+    #v-path {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 220px;
+      text-align: center;
+      font-size: 30px;
+      font-weight: 400;
+      color: #5b6676;
+    }
+    #v-file {
+      position: absolute;
+      left: 760px;
+      top: 290px;
+      width: 400px;
+      height: 340px;
+    }
+    #v-file-icon {
+      position: absolute;
+      left: 100px;
+      top: 0;
+      width: 200px;
+      height: 250px;
+      border-radius: 18px;
+    }
+    #v-file-icon svg {
+      width: 200px;
+      height: 250px;
+      display: block;
+    }
+    #v-file-shade {
+      position: absolute;
+      left: 100px;
+      top: 0;
+      width: 200px;
+      height: 250px;
+      border-radius: 18px;
+      background: rgba(11, 27, 46, 0.12);
+      opacity: 0;
+    }
+    #v-file-name {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 272px;
+      text-align: center;
+    }
+    #v-file-name span {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 10px;
+      font-size: 34px;
+      font-weight: 400;
+      color: var(--color-ink, #0b1b2e);
+    }
+    #v-file-sel {
+      position: absolute;
+      left: 96px;
+      top: 270px;
+      width: 208px;
+      height: 52px;
+      border-radius: 10px;
+      background: var(--color-accent, #0a64d8);
+      opacity: 0;
+    }
+    #v-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 900px 205px;
+      opacity: 0;
+    }
+    #v-win {
+      position: absolute;
+      left: 160px;
+      top: 150px;
+      width: 1600px;
+      height: 560px;
+      border-radius: 22px;
+      background: #eef0f3;
+      overflow: hidden;
+      box-shadow: 0 30px 60px rgba(11, 27, 46, 0.18);
+      transform-origin: 800px 280px;
+    }
+    .tbar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1600px;
+      height: 110px;
+      background: #f7f8fa;
+      border-bottom: 1px solid #dadde2;
+    }
+    .lights {
+      position: absolute;
+      left: 36px;
+      top: 42px;
+      display: flex;
+      gap: 14px;
+    }
+    .lights i {
+      display: block;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+    }
+    .autosave {
+      position: absolute;
+      left: 170px;
+      top: 27px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 30px;
+      color: #3b4756;
+    }
+    .toggle {
+      position: relative;
+      width: 128px;
+      height: 56px;
+      border-radius: 28px;
+      background: #c9ced6;
+    }
+    .toggle .knob {
+      position: absolute;
+      left: 5px;
+      top: 5px;
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 2px 4px rgba(11, 27, 46, 0.25);
+    }
+    .toggle .ttxt {
+      position: absolute;
+      left: 60px;
+      top: 0;
+      width: 60px;
+      height: 56px;
+      line-height: 56px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: #3b4756;
+    }
+    .wtitle {
+      position: absolute;
+      left: 600px;
+      right: 40px;
+      top: 0;
+      height: 110px;
+      line-height: 110px;
+      text-align: center;
+      font-size: 32px;
+      white-space: nowrap;
+    }
+    .wtitle strong {
+      font-weight: 700;
+    }
+    #v-wsub {
+      color: #5b6676;
+    }
+    .page {
+      position: absolute;
+      left: 300px;
+      top: 150px;
+      width: 1000px;
+      height: 600px;
+      background: #ffffff;
+      box-shadow: 0 2px 10px rgba(11, 27, 46, 0.08);
+      padding: 70px 90px;
+    }
+    .page i {
+      display: block;
+      height: 18px;
+      border-radius: 9px;
+      background: #e1e5ea;
+      margin-bottom: 26px;
+    }
+    #v-head {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 860px;
+      text-align: center;
+      font-size: 64px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      opacity: 0;
+    }
+    #v-head-b {
+      color: var(--color-bad, #c62828);
+    }
+    #v-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 42px;
+      height: 64px;
+      transform-origin: 0 0;
+    }
+    #v-cursor svg {
+      width: 42px;
+      height: 64px;
+      display: block;
+    }
+  </style>
+  <div data-hf-id="hf-pylt"
+    id="root"
+    data-composition-id="vorher"
+    data-width="1920"
+    data-height="1080"
+    data-composition-variables='[
+      {"id":"vorher-zeile","type":"string","label":"Zeile","default":"Doppelklick im Finder:"},
+      {"id":"vorher-akzent","type":"string","label":"Akzent","default":"AutoSpeichern aus."},
+      {"id":"vorher-datei","type":"string","label":"Dateiname","default":"Angebot.docx"}
+    ]'
+  >
+    <div data-hf-id="hf-myrb" id="v-bg"></div>
+
+    <div data-hf-id="hf-kr33" id="v-path">OneDrive › Projekte</div>
+
+    <div data-hf-id="hf-j1tg" id="v-file">
+      <div data-hf-id="hf-u7vi" id="v-file-icon">
+        <svg data-hf-id="hf-p7rl" viewBox="0 0 160 200" aria-hidden="true">
+          <path data-hf-id="hf-xvs4" d="M14 4 H110 L150 44 V190 a6 6 0 0 1 -6 6 H16 a6 6 0 0 1 -6 -6 V10 a6 6 0 0 1 4 -6 Z" fill="#ffffff" stroke="#c9ced6" stroke-width="3" />
+          <path data-hf-id="hf-mrya" d="M110 4 V38 a6 6 0 0 0 6 6 H150" fill="#e6ebf1" stroke="#c9ced6" stroke-width="3" />
+          <rect data-hf-id="hf-ydqr" x="34" y="62" width="92" height="9" rx="4.5" fill="#d5dbe3" />
+          <rect data-hf-id="hf-dkas" x="34" y="82" width="80" height="9" rx="4.5" fill="#d5dbe3" />
+          <rect data-hf-id="hf-9m7a" x="34" y="102" width="92" height="9" rx="4.5" fill="#d5dbe3" />
+          <rect data-hf-id="hf-0eaz" x="34" y="122" width="62" height="9" rx="4.5" fill="#d5dbe3" />
+          <text data-hf-id="hf-47co" x="80" y="178" text-anchor="middle" font-family="Inter, sans-serif" font-size="24" font-weight="700" fill="#5b6676">DOCX</text>
+        </svg>
+      </div>
+      <div data-hf-id="hf-5dbc" id="v-file-shade"></div>
+      <div data-hf-id="hf-jsqj" id="v-file-sel"></div>
+      <div data-hf-id="hf-gmew" id="v-file-name"><span data-hf-id="hf-g4yj" id="v-file-label" data-var-text="vorher-datei">Angebot.docx</span></div>
+    </div>
+
+    <div data-hf-id="hf-nolg" id="v-cam" data-layout-allow-overflow>
+      <div data-hf-id="hf-4lfo" id="v-win">
+        <div data-hf-id="hf-635v" class="tbar">
+          <div data-hf-id="hf-05r3" class="lights">
+            <i data-hf-id="hf-dsrb" style="background: #ff5f57"></i><i data-hf-id="hf-417v" style="background: #febc2e"></i><i data-hf-id="hf-smrp" style="background: #28c840"></i>
+          </div>
+          <div data-hf-id="hf-spku" class="autosave">
+            <span data-hf-id="hf-q6pz">AutoSpeichern</span>
+            <span data-hf-id="hf-izux" class="toggle"><b data-hf-id="hf-9uel" class="knob"></b><span data-hf-id="hf-gih0" class="ttxt">Aus</span></span>
+          </div>
+          <div data-hf-id="hf-gmtf" class="wtitle"><strong data-hf-id="hf-5476">Angebot</strong><span data-hf-id="hf-puva" id="v-wsub"> – Auf meinem Mac gespeichert</span></div>
+        </div>
+        <div data-hf-id="hf-9tvl" class="page">
+          <i data-hf-id="hf-z7u0" style="width: 46%; height: 30px; background: #cfd5dd; margin-bottom: 44px"></i>
+          <i data-hf-id="hf-bnif" style="width: 100%"></i>
+          <i data-hf-id="hf-g4cf" style="width: 94%"></i>
+          <i data-hf-id="hf-u6wj" style="width: 98%"></i>
+          <i data-hf-id="hf-817a" style="width: 71%"></i>
+          <i data-hf-id="hf-c7vo" style="width: 100%; margin-top: 44px"></i>
+          <i data-hf-id="hf-4f1m" style="width: 88%"></i>
+        </div>
+      </div>
+    </div>
+
+    <div data-hf-id="hf-19ok" id="v-head"><span data-hf-id="hf-jw60" id="v-head-a" data-var-text="vorher-zeile">Doppelklick im Finder:</span> <span data-hf-id="hf-ul0w" id="v-head-b" data-var-text="vorher-akzent">AutoSpeichern aus.</span></div>
+
+    <div data-hf-id="hf-qnko" id="v-cursor">
+      <svg data-hf-id="hf-nfyd" viewBox="-2 -2 30 44" aria-hidden="true">
+        <path data-hf-id="hf-jrde" d="M0 0 L0 34 L8 26.5 L13.2 38.6 L18.4 36.4 L13.3 24.6 L24 24.6 Z" fill="#000000" stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round" />
+      </svg>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+
+      // Datei erscheint (Blur-Tausch), Grund bleibt stehen
+      tl.fromTo(["#v-path", "#v-file"], { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out", stagger: 0.06 }, 0.05);
+
+      // Zeiger kommt von rechts unten und landet auf der Datei
+      tl.fromTo("#v-cursor", { x: 1580, y: 1040 }, { x: 968, y: 430, duration: 0.7, ease: "power3.inOut" }, 0.3);
+
+      // Doppelklick
+      [1.05, 1.25].forEach(function (t) {
+        tl.to("#v-cursor", { scale: 0.88, duration: 0.05, ease: "power2.out" }, t);
+        tl.to("#v-cursor", { scale: 1, duration: 0.08, ease: "power2.out" }, t + 0.05);
+      });
+      tl.set("#v-file-shade", { opacity: 1 }, 1.07);
+      tl.set("#v-file-sel", { opacity: 1 }, 1.07);
+      tl.set("#v-file-label", { color: "#ffffff" }, 1.07);
+
+      // Match-Cut auf den Rückprall des zweiten Klicks: Office-Fenster
+      tl.set(["#v-file", "#v-path", "#v-cursor"], { opacity: 0 }, 1.33);
+      tl.set("#v-cam", { opacity: 1 }, 1.33);
+      tl.fromTo("#v-win", { scale: 1.05 }, { scale: 1, duration: 0.5, ease: "expo.out" }, 1.33);
+
+      // Push auf die Titelleiste, Untertitel wird zur Problemfarbe
+      tl.fromTo("#v-cam", { scale: 1 }, { scale: 1.12, duration: 0.6, ease: "power2.inOut" }, 2.0);
+      tl.fromTo("#v-wsub", { color: "#5b6676" }, { color: "#c62828", duration: 0.3, ease: "power2.inOut" }, 2.25);
+
+      // Zeile blurrt als Ganzes ein
+      tl.fromTo("#v-head", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.18, ease: "power4.out" }, 2.35);
+
+      // Abgang
+      tl.to(["#v-cam", "#v-head"], { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, 3.72);
+
+      window.__timelines["vorher"] = tl;
+    })();
+  </script>
+</template>

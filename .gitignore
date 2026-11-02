@@ -6,3 +6,9 @@ reports-output/
 
 # Zugangsdaten (API-Token, Tunnel-Token, Lesekonto) – nie committen
 .secrets/
+
+# HyperFrames-Videoprojekte: Caches und Render-Ausgaben (fertiges Video liegt in docs/)
+Promo/**/.hyperframes/
+Promo/**/.thumbnails/
+Promo/**/renders/
+Promo/**/node_modules/

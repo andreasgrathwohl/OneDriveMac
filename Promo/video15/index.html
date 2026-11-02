@@ -1,0 +1,107 @@
+<!doctype html>
+<html
+  lang="de"
+  data-composition-variables='[
+    {"id":"color-ground","type":"color","label":"Hintergrund","default":"#EAF0F7"},
+    {"id":"color-ink","type":"color","label":"Text","default":"#0B1B2E"},
+    {"id":"color-accent","type":"color","label":"Markenblau","default":"#0A64D8"},
+    {"id":"color-bad","type":"color","label":"Akzent Problem","default":"#C62828"},
+    {"id":"color-good","type":"color","label":"Akzent Lösung","default":"#1C8C36"},
+    {"id":"font-display","type":"string","label":"Schrift","default":"Inter"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --color-ground: #eaf0f7;
+        --color-ink: #0b1b2e;
+        --color-accent: #0a64d8;
+        --color-bad: #c62828;
+        --color-good: #1c8c36;
+        --font-display: Inter;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--color-ground);
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        font-family: var(--font-display), sans-serif;
+        color: var(--color-ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-77uv"
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="15"
+      data-width="1920"
+      data-height="1080"
+      data-motion-blur="on"
+    >
+      <div data-hf-id="hf-tddj"
+        id="vorher"
+        data-composition-id="vorher"
+        data-composition-src="compositions/vorher.html"
+        data-start="0"
+        data-duration="4"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+      ></div>
+      <div data-hf-id="hf-601m"
+        id="menue"
+        data-composition-id="menue"
+        data-composition-src="compositions/menue.html"
+        data-start="4"
+        data-duration="3.6"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+      ></div>
+      <div data-hf-id="hf-189c"
+        id="nachher"
+        data-composition-id="nachher"
+        data-composition-src="compositions/nachher.html"
+        data-start="7.6"
+        data-duration="3.8"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+      ></div>
+      <div data-hf-id="hf-0lg2"
+        id="ende"
+        data-composition-id="ende"
+        data-composition-src="compositions/ende.html"
+        data-start="11.4"
+        data-duration="3.6"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+      ></div>
+    </div>
+    <script>
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>
