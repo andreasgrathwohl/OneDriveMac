@@ -1,3 +1,7 @@
+## Neu in 1.7.1
+
+- **Kein Fehlalarm „Dokument wurde geschlossen“ mehr:** War PowerPoint oder Word gerade beschäftigt – etwa beim Hochladen einer großen Datei oder direkt nach dem Aufwachen des Macs –, meldete die App manchmal, das Dokument sei während des Speicherns geschlossen worden, obwohl es offen war. Jetzt misst sie in diesem Fall einfach weiter.
+
 ## Neu in 1.7.0
 
 - **Speicher-Wächter:** Zeigt Word, Excel oder PowerPoint bei einem Dokument in OneDrive 10 Minuten lang nicht „Gespeichert“ an, meldet einen Speicherfehler oder speichert seit 15 Minuten, warnt die App deutlich: Die Änderungen kommen dann womöglich nicht in OneDrive an und können beim Beenden verloren gehen. Die Warnung erklärt, was zu tun ist – **Datei → Kopie speichern … auf den Schreibtisch, Office nicht „Sofort beenden“** – und wechselt auf Knopfdruck zur Office-App. Der Vorfall wird automatisch an den Entwickler gemeldet.
