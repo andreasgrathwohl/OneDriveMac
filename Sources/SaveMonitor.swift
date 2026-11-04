@@ -27,6 +27,10 @@ final class SaveMonitor {
         var offline: TimeInterval = 0
         /// Seit wann keine Speicheranzeige mehr zu sehen ist.
         var quietSince: Date?
+        /// Seit wann das Fenster fehlt, obwohl Office geantwortet hat.
+        var missingSince: Date?
+        /// Abfragen, bei denen Office nicht rechtzeitig geantwortet hat (Bericht: `unreadable_scans`).
+        var unreadable = 0
         var reportedRunning = false
         /// Netzwerk-Momentaufnahme ab 20 s Dauer (Vergleich beim Bericht, siehe `NetworkUsage`).
         var network: NetworkUsage.Snapshot?
@@ -299,20 +303,21 @@ final class SaveMonitor {
             return TitleBarReader.Target(app: app, pid: running.processIdentifier)
         }
         if targets.isEmpty {
-            if !episodes.isEmpty { process([], at: now, elapsed: elapsed) }
+            if !episodes.isEmpty { process(TitleBarReader.Scan(), at: now, elapsed: elapsed) }
             return
         }
         scanning = true
         Task {
-            let windows: [TitleBarReader.Window] = await withCheckedContinuation { continuation in
+            let scan: TitleBarReader.Scan = await withCheckedContinuation { continuation in
                 saveMonitorQueue.async { continuation.resume(returning: TitleBarReader.read(targets)) }
             }
             scanning = false
-            process(windows, at: Date(), elapsed: elapsed)
+            process(scan, at: Date(), elapsed: elapsed)
         }
     }
 
-    private func process(_ windows: [TitleBarReader.Window], at now: Date, elapsed: TimeInterval) {
+    private func process(_ scan: TitleBarReader.Scan, at now: Date, elapsed: TimeInterval) {
+        let windows = scan.windows
         var seen = Set<String>()
         var lines: [String] = []
         var guardReadings: [SaveGuard.TitleReading] = []
@@ -329,6 +334,7 @@ final class SaveMonitor {
             switch reading.state {
             case .saving, .pending, .failed:
                 var episode = episodes[key] ?? Episode(app: window.app, document: reading.document, start: now)
+                episode.missingSince = nil
                 if let text = reading.text, !episode.texts.contains(text) {
                     episode.texts.append(text)
                     if reading.state == .failed {
@@ -357,6 +363,7 @@ final class SaveMonitor {
             case .idle:
                 // Office zeigt zwischendurch evtl. gar nichts an – erst nach 6 s als beendet werten.
                 guard var episode = episodes[key] else { continue }
+                episode.missingSince = nil
                 let since = episode.quietSince ?? now
                 if now.timeIntervalSince(since) >= 6 {
                     episodes[key] = nil
@@ -367,10 +374,27 @@ final class SaveMonitor {
                 }
             }
         }
-        for (key, episode) in episodes where !seen.contains(key) {
+        for (key, var episode) in episodes where !seen.contains(key) {
+            // Office hat nicht geantwortet: Fenster unbekannt, nicht geschlossen – Messung läuft weiter.
+            if scan.unreadable.contains(episode.app) {
+                if episode.unreadable == 0 {
+                    Log.info("Speichern: \(episode.app.displayName) antwortet nicht – „\(episode.document)“ wird weiter gemessen")
+                }
+                episode.unreadable += 1
+                episodes[key] = episode
+                continue
+            }
+            // Fehlt das Fenster nur bei einer Abfrage (Titel kurz anders, Aufwachen), ist es nicht geschlossen –
+            // erst nach 6 s ohne Fenster als geschlossen werten, wie bei verschwundener Anzeige.
+            let since = episode.missingSince ?? now
+            guard now.timeIntervalSince(since) >= 6 else {
+                episode.missingSince = since
+                episodes[key] = episode
+                continue
+            }
             episodes[key] = nil
-            finish(episode, at: now, outcome: "Fenster geschlossen, bevor „Gespeichert“ erschien")
-            if duration(episode, until: now) >= 10, Settings.saveWarning {
+            finish(episode, at: since, outcome: "Fenster geschlossen, bevor „Gespeichert“ erschien")
+            if duration(episode, until: since) >= 10, Settings.saveWarning {
                 notice.show("„\(episode.document)“ wurde geschlossen, während \(episode.app.displayName) noch gespeichert hat. "
                     + "Öffne das Dokument erneut und prüfe, ob die letzte Änderung angekommen ist.",
                     symbol: "exclamationmark.triangle.fill", color: .systemOrange, hideAfter: 30)
@@ -420,6 +444,7 @@ final class SaveMonitor {
         var extras: [String] = []
         if episode.offline > 0 { extras.append("davon \(Self.format(episode.offline)) offline") }
         if episode.asleep > 0 { extras.append("Ruhezustand \(Self.format(episode.asleep)) nicht mitgezählt") }
+        if episode.unreadable > 0 { extras.append("\(episode.unreadable)× keine Antwort von \(episode.app.displayName)") }
         if !episode.texts.isEmpty { extras.append("Anzeige: \(episode.texts.joined(separator: " → "))") }
         Log.info("Speichern: „\(episode.document)“ (\(episode.app.displayName)) – \(outcome) nach \(Self.format(seconds))"
             + (extras.isEmpty ? "" : " (\(extras.joined(separator: "; ")))"))
@@ -445,6 +470,7 @@ final class SaveMonitor {
             "status_texts": episode.texts.joined(separator: " → "),
             "offline_s": Int(episode.offline),
             "asleep_s": Int(episode.asleep),
+            "unreadable_scans": episode.unreadable,
             "network": Connectivity.shared.networkDescription,
             "low_power_mode": ProcessInfo.processInfo.isLowPowerModeEnabled,
             "documents_saving_now": episodes.count,
@@ -654,22 +680,38 @@ enum TitleBarReader {
         "AXTextArea", "AXWebArea", "AXScrollArea", "AXLayoutArea", "AXTable", "AXOutline", "AXBrowser", "AXList",
     ]
 
-    static func read(_ targets: [Target]) -> [Window] {
+    struct Scan {
+        var windows: [Window] = []
+        /// Apps, die nicht rechtzeitig geantwortet haben (z. B. beschäftigt beim Hochladen oder nach dem
+        /// Aufwachen). Ihre Fenster fehlen in `windows`, sind aber nicht geschlossen.
+        var unreadable = Set<OfficeApp>()
+    }
+
+    static func read(_ targets: [Target]) -> Scan {
         // Eine hängende Office-App darf die Messung nicht minutenlang aufhalten.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
-        var result: [Window] = []
+        var scan = Scan()
         for target in targets {
             let app = AXUIElementCreateApplication(target.pid)
-            guard let windows = value(app, kAXWindowsAttribute) as? [AXUIElement] else { continue }
+            var list: CFTypeRef?
+            let error = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &list)
+            guard error == .success, let windows = list as? [AXUIElement] else {
+                // Zeitüberschreitung ≠ keine Fenster – sonst gälten alle Dokumente der App als geschlossen.
+                if error == .cannotComplete { scan.unreadable.insert(target.app) }
+                continue
+            }
             for window in windows.prefix(20) {
-                guard let title = value(window, kAXTitleAttribute) as? String, !title.isEmpty else { continue }
+                var titleValue: CFTypeRef?
+                let titleError = AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleValue)
+                if titleError == .cannotComplete { scan.unreadable.insert(target.app) }
+                guard let title = titleValue as? String, !title.isEmpty else { continue }
                 // Im Dock abgelegte Fenster haben keine lesbare Titelleiste – sähe aus wie „keine Anzeige“.
                 if value(window, kAXMinimizedAttribute) as? Bool == true { continue }
                 if let subrole = value(window, kAXSubroleAttribute) as? String, subrole != kAXStandardWindowSubrole { continue }
-                result.append(Window(app: target.app, title: title, texts: texts(in: window)))
+                scan.windows.append(Window(app: target.app, title: title, texts: texts(in: window)))
             }
         }
-        return result
+        return scan
     }
 
     private static func texts(in window: AXUIElement) -> [String] {
