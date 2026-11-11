@@ -1,3 +1,9 @@
+## Neu in 1.8.0
+
+- **Dokumente mit Komma im Namen** (z. B. „Vokabeln, Teil 2.docx“) öffnen jetzt mit AutoSpeichern. Word hatte die Adresse bisher nicht angenommen, und die Datei ging nur lokal auf.
+- **Öffnet Word ein Dokument nicht, reagiert die App nach spätestens einer Minute** und öffnet die Datei lokal – auch wenn Word hängt. Bisher konnte das bis zu einer Viertelstunde dauern.
+- **Langsames Speichern mit Grund:** Lädt die OneDrive-App gerade große Datenmengen hoch oder herunter (z. B. Videos), sagt der Hinweis das jetzt – etwa „OneDrive lädt gerade ~800 MB hoch – das Speichern dauert deshalb länger.“
+
 ## Neu in 1.7.1
 
 - **Kein Fehlalarm „Dokument wurde geschlossen“ mehr:** War PowerPoint oder Word gerade beschäftigt – etwa beim Hochladen einer großen Datei oder direkt nach dem Aufwachen des Macs –, meldete die App manchmal, das Dokument sei während des Speicherns geschlossen worden, obwohl es offen war. Jetzt misst sie in diesem Fall einfach weiter.
