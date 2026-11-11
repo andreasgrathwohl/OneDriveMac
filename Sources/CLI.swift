@@ -16,13 +16,14 @@ enum CLI {
         if let i = args.firstIndex(of: "--resolve"), i + 1 < args.count {
             let file = URL(fileURLWithPath: args[i + 1])
             if let result = PathResolver.resolve(file, roots: PathResolver.allRoots()) {
-                print("Web-URL:     \(result.url)")
+                let web = FileOpener.cloudAddress(result.url)
+                print("Web-URL:     \(web)")
                 print("Zuordnung:   \(result.root.localPath) (\(result.root.source))")
                 if result.root.isGuess {
                     print("Achtung:     nur geschätzt – wird \(Settings.useGuessedMappings ? "trotzdem online" : "lokal") geöffnet")
                 }
                 if let app = OfficeApp.forExtension(file.pathExtension) {
-                    print("Office-URI:  \(FileOpener.officeURI(app, result.url))")
+                    print("Office-URI:  \(FileOpener.officeURI(app, web))")
                 }
             } else {
                 print("Nicht in einem erkannten OneDrive-Ordner.")
