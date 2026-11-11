@@ -35,6 +35,9 @@ final class SaveMonitor {
         /// Netzwerk-Momentaufnahme ab 20 s Dauer (Vergleich beim Bericht, siehe `NetworkUsage`).
         var network: NetworkUsage.Snapshot?
         var networkRequested = false
+        /// Erkannte Ursache, z. B. „OneDrive lädt gerade ~800 MB hoch“ (`NetworkUsage.oneDriveCause`), alle 30 s neu gemessen.
+        var cause: String?
+        var causeCheckedAt: Date?
     }
 
     private struct OpenedFile {
@@ -355,6 +358,14 @@ final class SaveMonitor {
                         self.episodes[key]?.network = snapshot
                     }
                 }
+                if let start = episode.network, duration(episode, until: now) >= 45,
+                   now.timeIntervalSince(episode.causeCheckedAt ?? .distantPast) >= 30 {
+                    episode.causeCheckedAt = now
+                    Task {
+                        guard let end = await NetworkUsage.take() else { return }
+                        self.episodes[key]?.cause = NetworkUsage.oneDriveCause(from: start, to: end)
+                    }
+                }
                 episodes[key] = episode
             case .saved, .local:
                 if let episode = episodes.removeValue(forKey: key) {
@@ -423,8 +434,9 @@ final class SaveMonitor {
         guard !noticeDismissed else { return }
         noticeShown = true
         let more = long.count > 1 ? " (und \(long.count - 1) weitere)" : ""
+        let cause = first.cause.map { "\($0) – das Speichern dauert deshalb länger. " } ?? ""
         notice.show("\(first.app.displayName) speichert „\(first.document)“\(more) seit \(Self.format(duration(first, until: now))). "
-            + "Bitte das Dokument nicht schließen und den Mac nicht zuklappen.",
+            + cause + "Bitte das Dokument nicht schließen und den Mac nicht zuklappen.",
             symbol: "icloud.and.arrow.up", color: .systemBlue, hideAfter: nil)
     }
 
@@ -446,6 +458,7 @@ final class SaveMonitor {
         if episode.asleep > 0 { extras.append("Ruhezustand \(Self.format(episode.asleep)) nicht mitgezählt") }
         if episode.unreadable > 0 { extras.append("\(episode.unreadable)× keine Antwort von \(episode.app.displayName)") }
         if !episode.texts.isEmpty { extras.append("Anzeige: \(episode.texts.joined(separator: " → "))") }
+        if let cause = episode.cause { extras.append(cause) }
         Log.info("Speichern: „\(episode.document)“ (\(episode.app.displayName)) – \(outcome) nach \(Self.format(seconds))"
             + (extras.isEmpty ? "" : " (\(extras.joined(separator: "; ")))"))
         if seconds >= 120 { report(episode, until: end, outcome: outcome) }
@@ -493,8 +506,10 @@ final class SaveMonitor {
             var payload = collected
             if let start, let end = await NetworkUsage.take() {
                 payload["network_usage"] = NetworkUsage.describe(from: start, to: end)
+                payload["cause"] = NetworkUsage.oneDriveCause(from: start, to: end) ?? "nicht erkannt"
             } else {
                 payload["network_usage"] = "keine Messung (nettop nicht verfügbar)"
+                payload["cause"] = "unbekannt (keine Netzwerk-Messung)"
             }
             Reporter.shared.send(kind: "slow_save", message: message, details: payload)
         }

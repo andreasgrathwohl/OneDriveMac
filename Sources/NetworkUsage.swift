@@ -69,8 +69,8 @@ enum NetworkUsage {
         return name
     }
 
-    /// Z. B. „in 130 s: OneDrive ↓ 85,2 MB ↑ 0,1 MB · Word ↓ 0,3 MB ↑ 2,1 MB · … · gesamt ↓ 90 MB ↑ 3 MB“.
-    static func describe(from start: Snapshot, to end: Snapshot) -> String {
+    /// Übertragene Bytes je Gruppe zwischen zwei Momentaufnahmen.
+    private static func delta(from start: Snapshot, to end: Snapshot) -> [String: (received: Int64, sent: Int64)] {
         var groups: [String: (received: Int64, sent: Int64)] = [:]
         for (name, now) in end.bytes {
             let before = start.bytes[name] ?? (received: 0, sent: 0)
@@ -81,6 +81,41 @@ enum NetworkUsage {
             let previous = groups[key] ?? (received: 0, sent: 0)
             groups[key] = (received: previous.received + received, sent: previous.sent + sent)
         }
+        return groups
+    }
+
+    /// Ab so viel OneDrive-Verkehr (↓ + ↑) im Messfenster gilt die OneDrive-App als Ursache eines langsamen
+    /// Speicherns: Sie belegt die Leitung, während Office selbst hochladen will.
+    static let oneDriveCauseBytes: Int64 = 50_000_000
+
+    /// Z. B. „OneDrive lädt gerade ~800 MB hoch“ – nil, solange die OneDrive-App unter der Schwelle bleibt.
+    static func oneDriveCause(from start: Snapshot, to end: Snapshot) -> String? {
+        guard let oneDrive = delta(from: start, to: end)["OneDrive"],
+              oneDrive.received + oneDrive.sent >= oneDriveCauseBytes else { return nil }
+        let direction: String
+        if oneDrive.sent >= 2 * oneDrive.received {
+            direction = "hoch"
+        } else if oneDrive.received >= 2 * oneDrive.sent {
+            direction = "herunter"
+        } else {
+            direction = "hoch und herunter"
+        }
+        return "OneDrive lädt gerade \(approx(oneDrive.received + oneDrive.sent)) \(direction)"
+    }
+
+    /// Gerundet für den Hinweis: „~50 MB“, „~800 MB“, „~1,2 GB“.
+    static func approx(_ bytes: Int64) -> String {
+        let mb = Double(bytes) / 1_000_000
+        if mb >= 1000 {
+            return "~" + String(format: "%.1f GB", mb / 1000).replacingOccurrences(of: ".", with: ",")
+        }
+        let step: Double = mb >= 100 ? 50 : 10
+        return "~\(Int((mb / step).rounded() * step)) MB"
+    }
+
+    /// Z. B. „in 130 s: OneDrive ↓ 85,2 MB ↑ 0,1 MB · Word ↓ 0,3 MB ↑ 2,1 MB · … · gesamt ↓ 90 MB ↑ 3 MB“.
+    static func describe(from start: Snapshot, to end: Snapshot) -> String {
+        let groups = delta(from: start, to: end)
         let fixed = ["OneDrive", "Word", "PowerPoint", "Excel", "Microsoft-Updates"]
         let others = groups.filter { !fixed.contains($0.key) }
             .sorted { $0.value.received + $0.value.sent > $1.value.received + $1.value.sent }
