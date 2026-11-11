@@ -23,8 +23,11 @@ enum FileOpener {
             openLocally(file, app)
             return
         }
-        let web = resolved.url
+        let web = cloudAddress(resolved.url)
         let root = resolved.root
+        if web != resolved.url {
+            Log.info("Datei- oder Ordnername enthält Komma – Adresse mit unkodiertem Komma")
+        }
         if !Connectivity.shared.isOnline {
             Log.info("Offline – „\(file.lastPathComponent)“ wird lokal geöffnet (AutoSpeichern braucht eine Internetverbindung)")
             openLocally(file, app)
@@ -61,8 +64,23 @@ enum FileOpener {
         }
     }
 
+    /// Word für Mac öffnet kein Dokument, dessen Adresse ein kodiertes Komma (`%2C`) enthält – in allen
+    /// Rückmeldungen mit Komma im Namen schlug das Öffnen fehl. Im Pfad ist „,“ erlaubt (RFC 3986, sub-delims)
+    /// und bleibt deshalb unkodiert. Beispiel: `…/Max%2C%20Mustermann.docx` → `…/Max,%20Mustermann.docx`.
+    static func cloudAddress(_ webURL: String) -> String {
+        webURL.replacingOccurrences(of: "%2C", with: ",", options: .caseInsensitive)
+    }
+
+    /// Nach so vielen Sekunden ohne offenes Dokument wird die Adresse einmal erneut an Word übergeben.
+    private static let verifyRetryAfter: TimeInterval = 20
+    /// Nach so vielen Sekunden (Uhrzeit, nicht Anzahl Runden) gibt `verifyOpened` auf und öffnet lokal.
+    private static let verifyGiveUpAfter: TimeInterval = 60
+    /// Die Sperre läuft so viel länger als die Kontrolle, damit sie nie vor deren Ende abläuft.
+    private static let wordBusyMargin: TimeInterval = 10
+
     /// Solange Word noch ein zuvor übergebenes Cloud-Dokument lädt, verwirft es weitere Adressen.
-    /// Bis dahin (höchstens 70 s, länger als die Kontrolle in `verifyOpened`) wird mit der nächsten Übergabe gewartet.
+    /// Bis dahin (Übergabe plus Kontrolle in `verifyOpened`, die die Sperre bis zu ihrer Frist + 10 s verlängert)
+    /// wird mit der nächsten Übergabe gewartet.
     private static var wordBusyUntil: Date?
     /// Gehört die Sperre noch zu dieser Übergabe? Eine späte Kontrolle darf nicht die Sperre des nächsten Dokuments aufheben.
     private static var wordBusyToken: UUID?
@@ -77,7 +95,7 @@ enum FileOpener {
             while let until = wordBusyUntil, until > Date() {
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
-            wordBusyUntil = Date().addingTimeInterval(70)
+            wordBusyUntil = Date().addingTimeInterval(verifyGiveUpAfter + wordBusyMargin)
             wordBusyToken = UUID()
         }
         guard await handOver(webURL, app: app) else {
@@ -96,7 +114,7 @@ enum FileOpener {
         let method = Settings.openMethod
         Log.info("Öffne online (\(method.title)): \(method == .webURL ? webURL : uri)")
         switch method {
-        case .officeURI: return openWithLaunchServices(uri)
+        case .officeURI: return await openWithLaunchServices(uri)
         case .appleEvent: return sendGetURL(uri, to: app)
         case .webURL: return await openWebURL(webURL, with: app)
         }
@@ -114,8 +132,12 @@ enum FileOpener {
 
     /// Prüft, ob Word das Dokument wirklich geöffnet hat. Nach 20 s ohne Dokument wird die Adresse
     /// einmal erneut übergeben; nach 60 s: Fehler melden (mit der erzeugten Adresse) und die Datei
-    /// lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht.
+    /// lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht. Die Fristen gelten nach der Uhr:
+    /// Antwortet Word nur zäh, werden die Runden kürzer, nicht die Kontrolle länger.
     private static func verifyOpened(_ file: URL, webURL: String, token: UUID) async {
+        let start = Date()
+        let deadline = start.addingTimeInterval(verifyGiveUpAfter)
+        if wordBusyToken == token { wordBusyUntil = deadline.addingTimeInterval(wordBusyMargin) }
         defer {
             if wordBusyToken == token { wordBusyUntil = nil }
         }
@@ -125,20 +147,26 @@ enum FileOpener {
             let nfc = n.precomposedStringWithCanonicalMapping
             return [nfc, (nfc as NSString).deletingPathExtension]
         }
-        for attempt in 1...30 {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            if attempt == 11 {
-                Log.info("„\(file.lastPathComponent)“ ist nach 20 s nicht offen – Adresse wird erneut an Word übergeben")
+        var handedOverAgain = false
+        while deadline.timeIntervalSinceNow > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(min(2, max(0, deadline.timeIntervalSinceNow)) * 1_000_000_000))
+            if !handedOverAgain, Date().timeIntervalSince(start) >= verifyRetryAfter {
+                handedOverAgain = true
+                Log.info("„\(file.lastPathComponent)“ ist nach \(Int(verifyRetryAfter)) s nicht offen – Adresse wird erneut an Word übergeben")
                 _ = await handOver(webURL, app: .word)
             }
-            let result = await AppleScriptRunner.run(wordDocumentNamesScript)
+            // Kurzes Zeitlimit (etwas über dem `with timeout` im Skript), höchstens bis zur Frist.
+            let left = deadline.timeIntervalSinceNow
+            guard left > 0.5 else { break }
+            let result = await AppleScriptRunner.run(wordDocumentNamesScript, timeout: min(6, left))
             guard !result.permissionDenied, let output = result.output else { return }
             let open = output.split(separator: "\n").map { String($0).precomposedStringWithCanonicalMapping }
             if open.contains(where: { doc in names.contains { doc.caseInsensitiveCompare($0) == .orderedSame } }) {
                 return
             }
         }
-        Log.error("Word hat „\(file.lastPathComponent)“ nicht geöffnet. Lokaler Pfad: \(file.path) – erzeugte Adresse: \(webURL)")
+        let waited = Int(Date().timeIntervalSince(start))
+        Log.error("Word hat „\(file.lastPathComponent)“ nach \(waited) s nicht geöffnet. Lokaler Pfad: \(file.path) – erzeugte Adresse: \(webURL)")
         openLocally(file, .word)
     }
 
@@ -157,19 +185,41 @@ enum FileOpener {
         return "\(app.scheme):" + fields.joined(separator: "%7C")
     }
 
-    private static func openWithLaunchServices(_ uri: String) -> Bool {
+    private enum OpenOutcome { case opened, timedOut, failed(Int32), notStarted(String) }
+
+    /// `open` kehrt erst zurück, wenn Office die Adresse angenommen hat. Hängt Office, darf das nicht die
+    /// Menüleiste (und die Fristen in `verifyOpened`) blockieren: außerhalb des Hauptthreads und mit Zeitlimit.
+    private static func openWithLaunchServices(_ uri: String) async -> Bool {
+        let outcome: OpenOutcome = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(returning: runOpen(uri, timeout: 10))
+            }
+        }
+        switch outcome {
+        case .opened: return true
+        case .timedOut: Log.error("open hat nach 10 s nicht geantwortet – Office reagiert nicht")
+        case .failed(let status): Log.error("open beendet mit Status \(status)")
+        case .notStarted(let message): Log.error("open fehlgeschlagen: \(message)")
+        }
+        return false
+    }
+
+    private nonisolated static func runOpen(_ uri: String, timeout: TimeInterval) -> OpenOutcome {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         process.arguments = [uri]
         do {
             try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus == 0 { return true }
-            Log.error("open beendet mit Status \(process.terminationStatus)")
         } catch {
-            Log.error("open fehlgeschlagen: \(error.localizedDescription)")
+            return .notStarted(error.localizedDescription)
         }
-        return false
+        let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        process.waitUntilExit()
+        watchdog.cancel()
+        // Vom Wächter beendet: `open` endet dann durch das Signal statt mit einem Status.
+        if process.terminationReason == .uncaughtSignal { return .timedOut }
+        return process.terminationStatus == 0 ? .opened : .failed(process.terminationStatus)
     }
 
     /// Schickt die Adresse unverändert (ohne URL-Kodierung von „|“) als GetURL-Event an die Office-App.
