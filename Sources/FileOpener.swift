@@ -114,7 +114,7 @@ enum FileOpener {
         let method = Settings.openMethod
         Log.info("Öffne online (\(method.title)): \(method == .webURL ? webURL : uri)")
         switch method {
-        case .officeURI: return openWithLaunchServices(uri)
+        case .officeURI: return await openWithLaunchServices(uri)
         case .appleEvent: return sendGetURL(uri, to: app)
         case .webURL: return await openWebURL(webURL, with: app)
         }
@@ -185,19 +185,41 @@ enum FileOpener {
         return "\(app.scheme):" + fields.joined(separator: "%7C")
     }
 
-    private static func openWithLaunchServices(_ uri: String) -> Bool {
+    private enum OpenOutcome { case opened, timedOut, failed(Int32), notStarted(String) }
+
+    /// `open` kehrt erst zurück, wenn Office die Adresse angenommen hat. Hängt Office, darf das nicht die
+    /// Menüleiste (und die Fristen in `verifyOpened`) blockieren: außerhalb des Hauptthreads und mit Zeitlimit.
+    private static func openWithLaunchServices(_ uri: String) async -> Bool {
+        let outcome: OpenOutcome = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(returning: runOpen(uri, timeout: 10))
+            }
+        }
+        switch outcome {
+        case .opened: return true
+        case .timedOut: Log.error("open hat nach 10 s nicht geantwortet – Office reagiert nicht")
+        case .failed(let status): Log.error("open beendet mit Status \(status)")
+        case .notStarted(let message): Log.error("open fehlgeschlagen: \(message)")
+        }
+        return false
+    }
+
+    private nonisolated static func runOpen(_ uri: String, timeout: TimeInterval) -> OpenOutcome {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         process.arguments = [uri]
         do {
             try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus == 0 { return true }
-            Log.error("open beendet mit Status \(process.terminationStatus)")
         } catch {
-            Log.error("open fehlgeschlagen: \(error.localizedDescription)")
+            return .notStarted(error.localizedDescription)
         }
-        return false
+        let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        process.waitUntilExit()
+        watchdog.cancel()
+        // Vom Wächter beendet: `open` endet dann durch das Signal statt mit einem Status.
+        if process.terminationReason == .uncaughtSignal { return .timedOut }
+        return process.terminationStatus == 0 ? .opened : .failed(process.terminationStatus)
     }
 
     /// Schickt die Adresse unverändert (ohne URL-Kodierung von „|“) als GetURL-Event an die Office-App.
