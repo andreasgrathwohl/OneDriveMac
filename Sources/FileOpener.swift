@@ -128,7 +128,8 @@ enum FileOpener {
         }
         AppState.recordOpen(file, online: true)
         SaveMonitor.shared.noteOpened(file)
-        if app == .word, let token = wordBusyToken { Task { await verifyOpened(file, webURL: webURL, token: token) } }
+        let token = app == .word ? wordBusyToken : nil
+        Task { await verifyOpened(file, app: app, webURL: webURL, token: token) }
     }
 
     /// Übergibt die Online-Adresse auf dem eingestellten Weg an Office.
@@ -143,26 +144,45 @@ enum FileOpener {
         }
     }
 
-    private static let wordDocumentNamesScript = """
-    if application id "com.microsoft.Word" is not running then return ""
-    set docNames to {}
-    with timeout of 5 seconds
-      tell application id "com.microsoft.Word" to set docNames to name of every document
-    end timeout
-    set AppleScript's text item delimiters to linefeed
-    return docNames as text
-    """
+    /// Liefert die Namen der offenen Dokumente der App, je Zeile einer. Gleiche Zuordnung der
+    /// AppleScript-Klasse wie `OfficeIntegration.collection(_:)`.
+    private static func documentNamesScript(_ app: OfficeApp) -> String {
+        let collection: String
+        switch app {
+        case .word: collection = "documents"
+        case .excel: collection = "workbooks"
+        case .powerpoint: collection = "presentations"
+        }
+        return """
+        if application id "\(app.bundleID)" is not running then return ""
+        set docNames to {}
+        with timeout of 5 seconds
+          tell application id "\(app.bundleID)" to set docNames to name of \(collection)
+        end timeout
+        set AppleScript's text item delimiters to linefeed
+        return docNames as text
+        """
+    }
 
-    /// Prüft, ob Word das Dokument wirklich geöffnet hat. Nach 20 s ohne Dokument wird die Adresse
-    /// einmal erneut übergeben; nach 60 s: Fehler melden (mit der erzeugten Adresse) und die Datei
-    /// lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht. Die Fristen gelten nach der Uhr:
-    /// Antwortet Word nur zäh, werden die Runden kürzer, nicht die Kontrolle länger.
-    private static func verifyOpened(_ file: URL, webURL: String, token: UUID) async {
+    /// Ab so vielen Sekunden ohne offenes Dokument erscheint das Fenster „öffnet ungewöhnlich lange“.
+    private static let verifyPanelAfter: TimeInterval = 15
+
+    /// Prüft, ob Office das Dokument wirklich geöffnet hat. Nach 15 s ohne Dokument erscheint ein Fenster mit
+    /// „Lokal öffnen“ (lokal öffnen und Störungsbetrieb auslösen) und „Abbrechen“ (nur die Kontrolle beenden).
+    /// Nur bei Word wird die Adresse nach 20 s einmal erneut übergeben. Nach 60 s ohne Klick: Fehler melden
+    /// (mit der erzeugten Adresse), die Datei lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht,
+    /// und Störungsbetrieb auslösen. Die Fristen gelten nach der Uhr: Antwortet Office nur zäh, werden die
+    /// Runden kürzer, nicht die Kontrolle länger. `token` nur bei Word: Die Word-Sperre wird auf jedem
+    /// Rückweg freigegeben (`defer`), damit weitere Dokumente nicht bis zum Ablauf der Sperre warten.
+    private static func verifyOpened(_ file: URL, app: OfficeApp, webURL: String, token: UUID?) async {
         let start = Date()
         let deadline = start.addingTimeInterval(verifyGiveUpAfter)
-        if wordBusyToken == token { wordBusyUntil = deadline.addingTimeInterval(wordBusyMargin) }
+        if let token = token, wordBusyToken == token { wordBusyUntil = deadline.addingTimeInterval(wordBusyMargin) }
+        // Eigenes Fenster je Kontrolle: Ein zweites Dokument übernimmt nicht das Fenster des ersten.
+        let panel = WaitingPanel()
         defer {
-            if wordBusyToken == token { wordBusyUntil = nil }
+            panel.hide()
+            if let token = token, wordBusyToken == token { wordBusyUntil = nil }
         }
         // Word zeigt den Online-Namen, evtl. ohne Endung.
         let online = webURL.split(separator: "/").last.map { String($0).removingPercentEncoding ?? String($0) }
@@ -170,10 +190,37 @@ enum FileOpener {
             let nfc = n.precomposedStringWithCanonicalMapping
             return [nfc, (nfc as NSString).deletingPathExtension]
         }
+        // Klick im Fenster auswerten; true = Kontrolle beendet.
+        func handleChoice() -> Bool {
+            switch panel.choice {
+            case .local?:
+                panel.hide()
+                Log.info("Lokal öffnen gewählt – „\(file.lastPathComponent)“ wird lokal geöffnet (\(app.displayName) öffnet ungewöhnlich lange)")
+                openLocally(file, app)
+                Outage.shared.trigger(reason: "Lokal öffnen gewählt")
+                return true
+            case .cancel?:
+                panel.hide()
+                Log.info("Öffnen abgebrochen: „\(file.lastPathComponent)“ (\(app.displayName) öffnet ungewöhnlich lange)")
+                return true
+            case nil:
+                return false
+            }
+        }
+        var panelShown = false
         var handedOverAgain = false
         while deadline.timeIntervalSinceNow > 0 {
-            try? await Task.sleep(nanoseconds: UInt64(min(2, max(0, deadline.timeIntervalSinceNow)) * 1_000_000_000))
-            if !handedOverAgain, Date().timeIntervalSince(start) >= verifyRetryAfter {
+            // 2 s je Runde, in kurzen Schritten, damit ein Klick im Fenster sofort wirkt.
+            let roundEnd = Date().addingTimeInterval(min(2, max(0, deadline.timeIntervalSinceNow)))
+            while panel.choice == nil, roundEnd.timeIntervalSinceNow > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(min(0.25, max(0, roundEnd.timeIntervalSinceNow)) * 1_000_000_000))
+            }
+            if handleChoice() { return }
+            if !panelShown, Date().timeIntervalSince(start) >= verifyPanelAfter {
+                panelShown = true
+                panel.show("„\(file.lastPathComponent)“ öffnet ungewöhnlich lange …", buttons: [.local, .cancel])
+            }
+            if app == .word, !handedOverAgain, Date().timeIntervalSince(start) >= verifyRetryAfter {
                 handedOverAgain = true
                 Log.info("„\(file.lastPathComponent)“ ist nach \(Int(verifyRetryAfter)) s nicht offen – Adresse wird erneut an Word übergeben")
                 _ = await handOver(webURL, app: .word)
@@ -181,16 +228,23 @@ enum FileOpener {
             // Kurzes Zeitlimit (etwas über dem `with timeout` im Skript), höchstens bis zur Frist.
             let left = deadline.timeIntervalSinceNow
             guard left > 0.5 else { break }
-            let result = await AppleScriptRunner.run(wordDocumentNamesScript, timeout: min(6, left))
+            let result = await AppleScriptRunner.run(documentNamesScript(app), timeout: min(6, left))
+            // Ohne Berechtigung oder Antwort lässt sich nichts prüfen: Fenster schließen (`defer`), kein Störungsbetrieb.
             guard !result.permissionDenied, let output = result.output else { return }
             let open = output.split(separator: "\n").map { String($0).precomposedStringWithCanonicalMapping }
+            // Ist das Dokument inzwischen offen, gilt das vor einem Klick während der Abfrage – sonst ginge es doppelt auf.
             if open.contains(where: { doc in names.contains { doc.caseInsensitiveCompare($0) == .orderedSame } }) {
                 return
             }
+            if handleChoice() { return }
         }
+        // Ein Klick genau zur Frist zählt noch.
+        if handleChoice() { return }
+        panel.hide()
         let waited = Int(Date().timeIntervalSince(start))
-        Log.error("Word hat „\(file.lastPathComponent)“ nach \(waited) s nicht geöffnet. Lokaler Pfad: \(file.path) – erzeugte Adresse: \(webURL)")
-        openLocally(file, .word)
+        Log.error("\(app.displayName) hat „\(file.lastPathComponent)“ nach \(waited) s nicht geöffnet. Lokaler Pfad: \(file.path) – erzeugte Adresse: \(webURL)")
+        openLocally(file, app)
+        Outage.shared.trigger(reason: "\(app.displayName) öffnet nicht")
     }
 
     /// Office-Adresse wie bei „In Desktop-App öffnen“ in OneDrive im Web. Word für Mac ignoriert die
