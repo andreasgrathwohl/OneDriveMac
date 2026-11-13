@@ -76,6 +76,7 @@ final class OfficeIntegration {
 
     private func tick() {
         guard Settings.wordIntegration, Settings.enabled, !busy, Connectivity.shared.isOnline,
+              !Outage.shared.isActive,  // Störungsbetrieb: nicht automatisch mit AutoSave neu öffnen
               let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
               let app = OfficeApp.allCases.first(where: { $0.bundleID == front }),
               !denied.contains(app) else { return }

@@ -103,7 +103,7 @@ Vorhanden:
     `verifyOpened` heute nur für `.word`.
   - `FileOpener.verifyOpened(_:webURL:token:)` – Kontrolle nach Uhrzeit bis `verifyGiveUpAfter` (60 s),
     erneute Übergabe nach `verifyRetryAfter` (20 s), danach `Log.error` + `openLocally`. Liest Namen über
-    `wordDocumentNamesScript` (nur Word). Konstanten `verifyRetryAfter`, `verifyGiveUpAfter`,
+    `documentNamesScript(_ app: OfficeApp)` (Word, PowerPoint, Excel; ersetzt `wordDocumentNamesScript`). Konstanten `verifyRetryAfter`, `verifyGiveUpAfter`,
     `wordBusyMargin` direkt darüber.
   - `FileOpener.ensureRunning(_:)` – zeigt `waitingPanel.show("… wird gestartet …")`.
   - Warten auf Upload in `open`: `waitingPanel.show("OneDrive lädt … noch hoch …")` +

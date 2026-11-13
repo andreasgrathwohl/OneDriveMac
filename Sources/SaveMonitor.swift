@@ -415,6 +415,17 @@ final class SaveMonitor {
         SaveMonitorSnapshot.lines = lines
         SaveGuard.shared.titleBars(guardReadings)
         updateNotice(now)
+        checkOutage(now)
+    }
+
+    /// Störungszeichen: mindestens zwei Dokumente speichern seit über 3 Min. (ohne Schlafzeit) – nur online,
+    /// wach und solange der Störungsbetrieb nicht schon läuft. Eine einzelne große Datei reicht nicht.
+    private func checkOutage(_ now: Date) {
+        guard Connectivity.shared.isOnline, sleepingSince == nil, !Outage.shared.isActive else { return }
+        let durations = episodes.values.map { duration($0, until: now) }
+        guard OutagePolicy.savesSignal(durations: durations) else { return }
+        let stuck = durations.filter { $0 >= 180 }.count
+        Outage.shared.trigger(reason: "\(stuck) Dokumente speichern seit über 3 Min.")
     }
 
     /// Hinweis, solange ein Dokument länger als 45 s speichert; danach kurz „Alles gespeichert“.
