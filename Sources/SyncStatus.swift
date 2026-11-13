@@ -25,11 +25,13 @@ enum SyncStatus {
         return .unknown
     }
 
-    /// Wartet bis zu `timeout` Sekunden, solange der Upload aussteht.
-    static func waitForUpload(_ file: URL, timeout: Int) async -> SyncState {
+    /// Wartet bis zu `timeout` Sekunden, solange der Upload aussteht – oder bis `stop()` true liefert
+    /// (Knopf im Wartefenster). Läuft auf dem Hauptthread, weil `stop` das Fenster abfragt.
+    @MainActor
+    static func waitForUpload(_ file: URL, timeout: Int, stop: () -> Bool = { false }) async -> SyncState {
         var state = current(file)
         let deadline = Date().addingTimeInterval(TimeInterval(timeout))
-        while state == .pending && Date() < deadline {
+        while state == .pending && Date() < deadline && !stop() {
             try? await Task.sleep(nanoseconds: 500_000_000)
             state = current(file)
         }

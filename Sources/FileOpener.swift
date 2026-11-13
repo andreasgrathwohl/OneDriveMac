@@ -49,9 +49,22 @@ enum FileOpener {
         while true {
             var state = SyncStatus.current(file)
             if state == .pending {
-                waitingPanel.show("OneDrive lädt „\(file.lastPathComponent)“ noch hoch …")
-                state = await SyncStatus.waitForUpload(file, timeout: Settings.syncWaitSeconds)
+                waitingPanel.show("OneDrive lädt „\(file.lastPathComponent)“ noch hoch …",
+                                  buttons: [.local, .cancel], localTitle: "Ohne AutoSpeichern öffnen")
+                state = await SyncStatus.waitForUpload(file, timeout: Settings.syncWaitSeconds,
+                                                       stop: { waitingPanel.choice != nil })
                 waitingPanel.hide()
+                switch waitingPanel.choice {
+                case .local?:
+                    Log.info("Ohne AutoSpeichern öffnen gewählt, Upload noch nicht fertig – „\(file.lastPathComponent)“ wird lokal geöffnet")
+                    openLocally(file, app)
+                    return
+                case .cancel?:
+                    Log.info("Öffnen abgebrochen: „\(file.lastPathComponent)“ (Warten auf Upload)")
+                    return
+                case nil:
+                    break
+                }
             }
             Log.info("Sync-Status: \(state.rawValue)")
 
@@ -93,7 +106,11 @@ enum FileOpener {
 
     static func launchCloud(_ webURL: String, app: OfficeApp, fallback file: URL) async {
         // Beim Kaltstart verwirft Office eine zu früh zugestellte URL: erst starten, dann übergeben.
-        await ensureRunning(app)
+        // Abgebrochen: zurück, bevor die Word-Sperre gesetzt wird – sonst warten weitere Dokumente unnötig.
+        guard await ensureRunning(app) else {
+            Log.info("Öffnen abgebrochen: „\(file.lastPathComponent)“ (Start von \(app.displayName))")
+            return
+        }
         if app == .word {
             if let until = wordBusyUntil, until > Date() {
                 Log.info("Word lädt noch ein anderes Dokument – „\(file.lastPathComponent)“ wartet")
@@ -263,12 +280,14 @@ enum FileOpener {
     }
 
     /// Startet die Office-App, falls nötig, und wartet, bis sie Dokumente annehmen kann.
-    private static func ensureRunning(_ app: OfficeApp) async {
-        if let running = runningInstance(app), running.isFinishedLaunching { return }
-        waitingPanel.show("\(app.displayName) wird gestartet …")
+    /// Liefert false, wenn im Wartefenster „Abbrechen“ gewählt wurde – dann nichts öffnen.
+    private static func ensureRunning(_ app: OfficeApp) async -> Bool {
+        if let running = runningInstance(app), running.isFinishedLaunching { return true }
+        waitingPanel.show("\(app.displayName) wird gestartet …", buttons: [.cancel])
         defer { waitingPanel.hide() }
+        // Ohne App weiter wie bisher: Die Übergabe scheitert dann und `launchCloud` öffnet lokal.
         if runningInstance(app) == nil {
-            guard let appURL = app.applicationURL else { return }
+            guard let appURL = app.applicationURL else { return true }
             Log.info("\(app.displayName) läuft noch nicht – wird zuerst gestartet")
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
@@ -276,12 +295,20 @@ enum FileOpener {
         }
         let start = Date()
         while Date().timeIntervalSince(start) < 30 {
+            if waitingPanel.choice == .cancel { return false }
             if let running = runningInstance(app), running.isFinishedLaunching { break }
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
-        // Office meldet „fertig“, bevor Anmeldung und Startfenster bereit sind.
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        // Office meldet „fertig“, bevor Anmeldung und Startfenster bereit sind. In kurzen Schritten warten,
+        // damit „Abbrechen“ sofort wirkt.
+        let settle = Date()
+        while Date().timeIntervalSince(settle) < 2 {
+            if waitingPanel.choice == .cancel { return false }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        if waitingPanel.choice == .cancel { return false }
         Log.info("\(app.displayName) bereit nach \(String(format: "%.1f", Date().timeIntervalSince(start))) s")
+        return true
     }
 
     static func openLocally(_ file: URL, _ app: OfficeApp) {
@@ -336,35 +363,80 @@ enum FileOpener {
     }
 }
 
+/// Knöpfe im Wartefenster: `.local` öffnet ohne AutoSpeichern, `.cancel` bricht das Öffnen ab.
+enum PanelButton { case local, cancel }
+
+/// Kleines Fenster mit Drehrad und Text, optional mit Knöpfen darunter. Die Wahl steht danach in `choice`;
+/// die Warteschleifen fragen sie ab (Polling) – das Fenster schließt sich beim Klick selbst.
 @MainActor
-final class WaitingPanel {
+final class WaitingPanel: NSObject {
+    /// Gewählter Knopf seit dem letzten `show`; nil, solange nichts geklickt wurde.
+    private(set) var choice: PanelButton?
+
     private var panel: NSPanel?
     private let label = NSTextField(labelWithString: "")
+    private let localButton = NSButton(title: "Lokal öffnen", target: nil, action: nil)
+    private let cancelButton = NSButton(title: "Abbrechen", target: nil, action: nil)
+    private let buttonRow = NSStackView()
 
-    func show(_ text: String) {
+    /// Ohne `buttons` wie bisher nur Drehrad und Text; mit Knöpfen wächst das Fenster nach unten.
+    func show(_ text: String, buttons: [PanelButton] = [], localTitle: String = "Lokal öffnen") {
+        choice = nil
         label.stringValue = text
-        if panel == nil {
-            let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 70),
-                            styleMask: [.titled, .utilityWindow], backing: .buffered, defer: false)
-            p.title = "OneDrive Opener"
-            p.level = .floating
-            p.isReleasedWhenClosed = false
-            let spinner = NSProgressIndicator()
-            spinner.style = .spinning
-            spinner.controlSize = .small
-            spinner.startAnimation(nil)
-            label.lineBreakMode = .byTruncatingMiddle
-            let stack = NSStackView(views: [spinner, label])
-            stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
-            stack.spacing = 10
-            p.contentView = stack
-            panel = p
+        let panel = self.panel ?? makePanel()
+        localButton.title = localTitle
+        localButton.isHidden = !buttons.contains(.local)
+        cancelButton.isHidden = !buttons.contains(.cancel)
+        buttonRow.isHidden = buttons.isEmpty
+        var height: CGFloat = 70
+        if !buttons.isEmpty, let content = panel.contentView {
+            height = max(70, content.fittingSize.height)
         }
-        panel?.center()
-        panel?.orderFrontRegardless()
+        panel.setContentSize(NSSize(width: 420, height: height))
+        panel.center()
+        panel.orderFrontRegardless()
     }
 
     func hide() {
         panel?.orderOut(nil)
+    }
+
+    @objc private func clicked(_ sender: NSButton) {
+        choice = sender === localButton ? .local : .cancel
+        hide()
+    }
+
+    private func makePanel() -> NSPanel {
+        // Nicht aktivierend: Die App ist meist nicht aktiv, die Knöpfe müssen trotzdem beim ersten Klick wirken.
+        let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 70),
+                        styleMask: [.titled, .utilityWindow, .nonactivatingPanel], backing: .buffered, defer: false)
+        p.title = "OneDrive Opener"
+        p.level = .floating
+        p.isReleasedWhenClosed = false
+        p.hidesOnDeactivate = false
+        p.becomesKeyOnlyIfNeeded = true
+        let spinner = NSProgressIndicator()
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.startAnimation(nil)
+        label.lineBreakMode = .byTruncatingMiddle
+        let row = NSStackView(views: [spinner, label])
+        row.spacing = 10
+        for button in [cancelButton, localButton] {
+            button.bezelStyle = .rounded
+            button.target = self
+            button.action = #selector(clicked(_:))
+        }
+        // Hauptaktion rechts, wie in macOS-Dialogen.
+        buttonRow.setViews([cancelButton, localButton], in: .trailing)
+        let stack = NSStackView(views: [row, buttonRow])
+        stack.orientation = .vertical
+        stack.alignment = .width
+        stack.distribution = .fill
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        p.contentView = stack
+        panel = p
+        return p
     }
 }
