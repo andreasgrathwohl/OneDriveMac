@@ -1,3 +1,9 @@
+## Neu in 1.9.0
+
+- **Störung bei Microsoft? Die App öffnet vorübergehend lokal.** Öffnet Word ein Dokument online nicht oder hängen mehrere Dokumente minutenlang bei „Wird gespeichert…“ bzw. „Upload ausstehend“, öffnet die App Dateien für 30 Minuten ohne AutoSpeichern – OneDrive lädt die Änderungen wie gewohnt hoch. Danach versucht sie es von selbst wieder online. Die Menüleiste zeigt „Störung bei Microsoft“ mit dem Knopf **Wieder online versuchen**. Pausieren ist dafür nicht mehr nötig.
+- **Neu im Menü: „Vorübergehend lokal öffnen (1 Std.)“** – für den Fall, dass du eine Störung schon bemerkst, bevor die App sie erkennt. Endet von selbst.
+- **Öffnen dauert ungewöhnlich lange?** Nach 15 Sekunden erscheint ein Fenster mit **Lokal öffnen** und **Abbrechen** – jetzt auch für PowerPoint und Excel. Auch die Fenster „Word wird gestartet …“ und „OneDrive lädt … noch hoch“ haben jetzt Knöpfe zum Abbrechen bzw. zum Öffnen ohne AutoSpeichern.
+
 ## Neu in 1.8.0
 
 - **Dokumente mit Komma im Namen** (z. B. „Vokabeln, Teil 2.docx“) öffnen jetzt mit AutoSpeichern. Word hatte die Adresse bisher nicht angenommen, und die Datei ging nur lokal auf.
