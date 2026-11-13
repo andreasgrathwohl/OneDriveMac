@@ -73,6 +73,10 @@ final class StatusController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         action(menu, Settings.enabled ? "Pausieren" : "Fortsetzen", #selector(toggleEnabled))
+        // Störungsbetrieb von Hand – nur sinnvoll, solange online geöffnet wird.
+        if Settings.enabled && !Outage.shared.isActive {
+            action(menu, "Vorübergehend lokal öffnen (1 Std.)", #selector(startOutage))
+        }
 
         menu.addItem(.separator())
         action(menu, "Einstellungen …", #selector(showSettings), key: ",")
@@ -182,6 +186,10 @@ final class StatusController: NSObject, NSMenuDelegate {
         Settings.enabled.toggle()
         Log.info(Settings.enabled ? "Fortgesetzt" : "Pausiert")
         AppState.changed()
+    }
+
+    @objc private func startOutage() {
+        Outage.shared.startManual()
     }
 
     @objc private func installUpdate() {

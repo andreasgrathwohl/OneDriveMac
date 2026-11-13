@@ -5,12 +5,19 @@ import SwiftUI
 @MainActor
 enum UserStatus {
     enum Kind: Equatable {
-        case active, openWithOnly, problem, paused, offline, oneDrive, saveGuard
+        case active, openWithOnly, problem, paused, offline, outage, oneDrive, saveGuard
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 
     static var kind: Kind {
         if !Settings.enabled { return .paused }
         if !Connectivity.shared.isOnline { return .offline }
+        if Outage.shared.isActive { return .outage }
         if SaveGuard.shared.warning != nil { return .saveGuard }
         if AppState.handlerProblem != nil { return .problem }
         if OneDriveHealth.shared.problem != nil { return .oneDrive }
@@ -26,6 +33,7 @@ enum UserStatus {
         case .problem: return "Office hat den Doppelklick übernommen"
         case .paused: return "Pausiert"
         case .offline: return "Offline"
+        case .outage: return Outage.shared.manual ? "Vorübergehend lokal" : "Störung bei Microsoft"
         case .oneDrive: return OneDriveHealth.shared.problem?.title ?? "OneDrive"
         case .saveGuard: return SaveGuard.shared.warning?.title ?? "Office speichert nicht"
         }
@@ -38,6 +46,10 @@ enum UserStatus {
         case .problem: return "Dateien öffnen per Doppelklick wieder ohne AutoSpeichern."
         case .paused: return "Office-Dateien werden wie gewohnt ohne AutoSpeichern geöffnet."
         case .offline: return "Ohne Internet öffnen Dateien ohne AutoSpeichern. OneDrive lädt Änderungen später hoch."
+        case .outage:
+            // Läuft die Zeit genau zwischen `kind` und hier ab, ist `until` schon nil.
+            guard let until = Outage.shared.until else { return "Dateien öffnen vorübergehend ohne AutoSpeichern." }
+            return "Dateien öffnen bis \(timeFormatter.string(from: until)) ohne AutoSpeichern."
         case .oneDrive: return OneDriveHealth.shared.problem?.subtitle ?? ""
         case .saveGuard: return SaveGuard.shared.warning?.subtitle ?? ""
         }
@@ -49,6 +61,7 @@ enum UserStatus {
         case .openWithOnly: return "Für Doppelklick aktivieren"
         case .problem: return "Reparieren"
         case .paused: return "Fortsetzen"
+        case .outage: return "Wieder online versuchen"
         case .oneDrive: return OneDriveHealth.shared.problem?.actionTitle
         case .saveGuard: return SaveGuard.shared.warning.map { "Zu \($0.app.displayName) wechseln" }
         }
@@ -61,6 +74,7 @@ enum UserStatus {
         case .problem: return "exclamationmark.icloud"
         case .paused: return "icloud.slash"
         case .offline: return "wifi.slash"
+        case .outage: return "exclamationmark.icloud"
         case .oneDrive: return "exclamationmark.icloud"
         case .saveGuard: return "exclamationmark.icloud.fill"
         }
@@ -70,7 +84,7 @@ enum UserStatus {
         switch kind {
         case .active: return .systemGreen
         case .openWithOnly: return .systemBlue
-        case .problem, .oneDrive: return .systemOrange
+        case .problem, .oneDrive, .outage: return .systemOrange
         case .saveGuard: return .systemRed
         case .paused, .offline: return .systemGray
         }
@@ -84,6 +98,8 @@ enum UserStatus {
             OneDriveHealth.shared.performAction()
         case .saveGuard:
             SaveGuard.shared.performAction()
+        case .outage:
+            Outage.shared.end(reason: "vom Anwender")
         case .paused:
             Settings.enabled = true
             Log.info("Fortgesetzt")

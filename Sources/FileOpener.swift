@@ -18,6 +18,12 @@ enum FileOpener {
             return
         }
 
+        if Outage.shared.isActive {
+            Log.info("Störungsbetrieb – „\(file.lastPathComponent)“ wird lokal geöffnet")
+            openLocally(file, app)
+            return
+        }
+
         guard let resolved = PathResolver.resolve(file, roots: PathResolver.allRoots()) else {
             Log.info("Keine Online-Adresse bekannt (nicht in OneDrive oder Sonderzeichen im Namen) → lokal")
             openLocally(file, app)
