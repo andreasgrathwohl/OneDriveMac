@@ -17,8 +17,8 @@ enum UserStatus {
     static var kind: Kind {
         if !Settings.enabled { return .paused }
         if !Connectivity.shared.isOnline { return .offline }
-        if Outage.shared.isActive { return .outage }
         if SaveGuard.shared.warning != nil { return .saveGuard }
+        if Outage.shared.isActive { return .outage }
         if AppState.handlerProblem != nil { return .problem }
         if OneDriveHealth.shared.problem != nil { return .oneDrive }
         let rows = DefaultHandler.statusRows()
