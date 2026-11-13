@@ -5,10 +5,14 @@ import SwiftUI
 ///   OneDriveOpener --diagnose
 ///   OneDriveOpener --resolve <Datei>
 ///   OneDriveOpener --screenshots <Ordner>   (Einstellungen als PNG, hell und dunkel – für CI)
+///   OneDriveOpener --selftest                (Prüfung der reinen Logik – für CI, Exit-Code 1 bei Fehlschlag)
 @MainActor
 enum CLI {
     static func run() -> Bool {
         let args = CommandLine.arguments
+        if args.contains("--selftest") {
+            exit(SelfTest.run() == 0 ? 0 : 1)
+        }
         if args.contains("--diagnose") {
             print(OneDriveConfig.diagnosticReport())
             return true

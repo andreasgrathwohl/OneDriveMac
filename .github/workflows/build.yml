@@ -23,8 +23,10 @@ jobs:
           if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then export VERSION="${GITHUB_REF_NAME#v}"; fi
           bash build.sh
 
-      - name: Selbsttest (Diagnose über die Kommandozeile)
-        run: '"build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --diagnose'
+      - name: Selbsttest (Diagnose und Logik über die Kommandozeile)
+        run: |
+          "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --diagnose
+          "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --selftest
 
       - name: Screenshots der Oberfläche
         continue-on-error: true
