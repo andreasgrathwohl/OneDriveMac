@@ -119,6 +119,11 @@ final class Outage {
 
     private func start(reason: String, manual: Bool) {
         let now = Date()
+        // Abgelaufen, aber `expireIfDue` lief noch nicht (z. B. direkt nach dem Aufwachen): erst sauber beenden,
+        // sonst folgen zwei „an“-Berichte ohne „aus“ dazwischen und die Dauer im „aus“-Bericht stimmt nicht.
+        if policy.until != nil && !policy.isActive(now: now) {
+            end(reason: "abgelaufen")
+        }
         let begun = policy.trigger(now: now, manual: manual)
         guard let until = policy.until else { return }
         endPending = false

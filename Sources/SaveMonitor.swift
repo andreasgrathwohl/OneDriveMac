@@ -418,11 +418,13 @@ final class SaveMonitor {
         checkOutage(now)
     }
 
-    /// Störungszeichen: mindestens zwei Dokumente speichern seit über 3 Min. (ohne Schlafzeit) – nur online,
+    /// Störungszeichen: mindestens zwei Dokumente speichern seit über 3 Min. (ohne Schlaf- und Offline-Zeit) – nur online,
     /// wach und solange der Störungsbetrieb nicht schon läuft. Eine einzelne große Datei reicht nicht.
     private func checkOutage(_ now: Date) {
         guard Connectivity.shared.isOnline, sleepingSince == nil, !Outage.shared.isActive else { return }
-        let durations = episodes.values.map { duration($0, until: now) }
+        // Nur Online-Wartezeit zählt: Nach einer Fahrt ohne Netz hängen sonst alle ausstehenden Uploads
+        // sofort „seit über 3 Min.“, obwohl Microsoft in Ordnung ist.
+        let durations = episodes.values.map { max(0, duration($0, until: now) - $0.offline) }
         guard OutagePolicy.savesSignal(durations: durations) else { return }
         let stuck = durations.filter { $0 >= 180 }.count
         Outage.shared.trigger(reason: "\(stuck) Dokumente speichern seit über 3 Min.")

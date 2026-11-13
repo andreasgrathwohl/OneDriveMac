@@ -3,8 +3,6 @@ import AppKit
 /// Entscheidet pro Datei: online über die Office-URI (AutoSpeichern) oder lokal in Office öffnen.
 @MainActor
 enum FileOpener {
-    private static let waitingPanel = WaitingPanel()
-
     static func open(_ file: URL, forceLocal: Bool) async {
         Log.info("Öffnen angefordert: \(file.path)")
         guard let app = OfficeApp.forExtension(file.pathExtension) else {
@@ -49,6 +47,8 @@ enum FileOpener {
         while true {
             var state = SyncStatus.current(file)
             if state == .pending {
+                // Eigenes Fenster je Öffnen: Ein Klick gilt nur für diese Datei, nicht für ein zweites wartendes Öffnen.
+                let waitingPanel = WaitingPanel()
                 waitingPanel.show("OneDrive lädt „\(file.lastPathComponent)“ noch hoch …",
                                   buttons: [.local, .cancel], localTitle: "Ohne AutoSpeichern öffnen")
                 state = await SyncStatus.waitForUpload(file, timeout: Settings.syncWaitSeconds,
@@ -92,8 +92,13 @@ enum FileOpener {
 
     /// Nach so vielen Sekunden ohne offenes Dokument wird die Adresse einmal erneut an Word übergeben.
     private static let verifyRetryAfter: TimeInterval = 20
-    /// Nach so vielen Sekunden (Uhrzeit, nicht Anzahl Runden) gibt `verifyOpened` auf und öffnet lokal.
+    /// Nach so vielen Sekunden (Uhrzeit ohne Ruhezustand, nicht Anzahl Runden) gibt `verifyOpened` bei Word auf
+    /// und öffnet lokal.
     private static let verifyGiveUpAfter: TimeInterval = 60
+    /// PowerPoint/Excel: kein automatischer Rückfall – das Fenster bleibt höchstens so lange, dann endet die Kontrolle.
+    private static let verifyPanelMaxAfter: TimeInterval = 300
+    /// Dauert ein Warteschritt so viel länger als vorgesehen, schlief der Mac: Die Frist wird um die Lücke verlängert.
+    private static let verifySleepGap: TimeInterval = 10
     /// Die Sperre läuft so viel länger als die Kontrolle, damit sie nie vor deren Ende abläuft.
     private static let wordBusyMargin: TimeInterval = 10
 
@@ -118,6 +123,15 @@ enum FileOpener {
             while let until = wordBusyUntil, until > Date() {
                 try? await Task.sleep(nanoseconds: 500_000_000)
             }
+        }
+        // Während des Wartens (Start der App, Word-Sperre) kann der Störungsbetrieb begonnen haben – dann nicht
+        // mehr online übergeben. Vor dem Setzen der Word-Sperre, damit keine Sperre hängen bleibt.
+        if Outage.shared.isActive {
+            Log.info("Störungsbetrieb – „\(file.lastPathComponent)“ wird lokal geöffnet")
+            openLocally(file, app)
+            return
+        }
+        if app == .word {
             wordBusyUntil = Date().addingTimeInterval(verifyGiveUpAfter + wordBusyMargin)
             wordBusyToken = UUID()
         }
@@ -169,15 +183,35 @@ enum FileOpener {
 
     /// Prüft, ob Office das Dokument wirklich geöffnet hat. Nach 15 s ohne Dokument erscheint ein Fenster mit
     /// „Lokal öffnen“ (lokal öffnen und Störungsbetrieb auslösen) und „Abbrechen“ (nur die Kontrolle beenden).
-    /// Nur bei Word wird die Adresse nach 20 s einmal erneut übergeben. Nach 60 s ohne Klick: Fehler melden
-    /// (mit der erzeugten Adresse), die Datei lokal öffnen, damit sie wenigstens ohne AutoSpeichern aufgeht,
-    /// und Störungsbetrieb auslösen. Die Fristen gelten nach der Uhr: Antwortet Office nur zäh, werden die
-    /// Runden kürzer, nicht die Kontrolle länger. `token` nur bei Word: Die Word-Sperre wird auf jedem
-    /// Rückweg freigegeben (`defer`), damit weitere Dokumente nicht bis zum Ablauf der Sperre warten.
+    /// Nur bei Word wird die Adresse nach 20 s einmal erneut übergeben. Nach 60 s ohne Klick (nur Word): eine
+    /// letzte Abfrage, dann Fehler melden (mit der erzeugten Adresse), die Datei lokal öffnen, damit sie wenigstens
+    /// ohne AutoSpeichern aufgeht, und – nur online – Störungsbetrieb auslösen. PowerPoint/Excel haben keinen
+    /// Rückfall: Große Dateien laden online legitim länger als 60 s, ein stiller Rückfall öffnete sie doppelt. Ihr
+    /// Fenster bleibt, bis das Dokument offen ist, geklickt wird oder 5 Min. vergangen sind.
+    /// Die Fristen gelten nach der Uhr: Antwortet Office nur zäh, werden die Runden kürzer, nicht die Kontrolle
+    /// länger. Ausnahme Ruhezustand: Die verschlafene Zeit verlängert die Frist. `token` nur bei Word: Die
+    /// Word-Sperre wird auf jedem Rückweg freigegeben (`defer`), damit weitere Dokumente nicht bis zum Ablauf der
+    /// Sperre warten.
     private static func verifyOpened(_ file: URL, app: OfficeApp, webURL: String, token: UUID?) async {
         let start = Date()
-        let deadline = start.addingTimeInterval(verifyGiveUpAfter)
-        if let token = token, wordBusyToken == token { wordBusyUntil = deadline.addingTimeInterval(wordBusyMargin) }
+        let fallback = app == .word
+        let limit = fallback ? verifyGiveUpAfter : verifyPanelMaxAfter
+        // Im Ruhezustand verstrichene Zeit – zählt weder für die Frist noch für Fenster und erneute Übergabe.
+        var slept: TimeInterval = 0
+        func elapsed() -> TimeInterval { Date().timeIntervalSince(start) - slept }
+        func remaining() -> TimeInterval { limit - elapsed() }
+        func extendWordLock() {
+            if let token = token, wordBusyToken == token { wordBusyUntil = Date().addingTimeInterval(remaining() + wordBusyMargin) }
+        }
+        // Dauerte ein Schritt mehr als 10 s länger als vorgesehen, schlief der Mac: Lücke nicht mitzählen.
+        func noteSleep(since began: Date, expected: TimeInterval) {
+            let gap = Date().timeIntervalSince(began) - expected
+            guard gap > verifySleepGap else { return }
+            slept += gap
+            Log.info("Ruhezustand während der Kontrolle von „\(file.lastPathComponent)“ – Frist um \(Int(gap)) s verlängert")
+            extendWordLock()
+        }
+        extendWordLock()
         // Eigenes Fenster je Kontrolle: Ein zweites Dokument übernimmt nicht das Fenster des ersten.
         let panel = WaitingPanel()
         defer {
@@ -189,6 +223,18 @@ enum FileOpener {
         let names = [file.lastPathComponent, online ?? ""].filter { !$0.isEmpty }.flatMap { n -> [String] in
             let nfc = n.precomposedStringWithCanonicalMapping
             return [nfc, (nfc as NSString).deletingPathExtension]
+        }
+        // Ist das Dokument offen? nil = keine Berechtigung, dann lässt sich nichts prüfen. Zeitüberschreitung oder
+        // anderer Skriptfehler zählt als „noch nicht offen“: Office beantwortet Apple Events oft nicht, solange es
+        // ein Cloud-Dokument lädt – genau dann müssen Fenster, Klick und Frist erhalten bleiben.
+        func isOpen(timeout: TimeInterval) async -> Bool? {
+            let began = Date()
+            let result = await AppleScriptRunner.run(documentNamesScript(app), timeout: timeout)
+            noteSleep(since: began, expected: timeout)
+            if result.permissionDenied { return nil }
+            guard let output = result.output else { return false }
+            let open = output.split(separator: "\n").map { String($0).precomposedStringWithCanonicalMapping }
+            return open.contains(where: { doc in names.contains { doc.caseInsensitiveCompare($0) == .orderedSame } })
         }
         // Klick im Fenster auswerten; true = Kontrolle beendet.
         func handleChoice() -> Bool {
@@ -209,42 +255,57 @@ enum FileOpener {
         }
         var panelShown = false
         var handedOverAgain = false
-        while deadline.timeIntervalSinceNow > 0 {
+        while remaining() > 0 {
             // 2 s je Runde, in kurzen Schritten, damit ein Klick im Fenster sofort wirkt.
-            let roundEnd = Date().addingTimeInterval(min(2, max(0, deadline.timeIntervalSinceNow)))
+            let roundEnd = Date().addingTimeInterval(min(2, max(0, remaining())))
             while panel.choice == nil, roundEnd.timeIntervalSinceNow > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(min(0.25, max(0, roundEnd.timeIntervalSinceNow)) * 1_000_000_000))
+                let step = min(0.25, max(0, roundEnd.timeIntervalSinceNow))
+                let began = Date()
+                try? await Task.sleep(nanoseconds: UInt64(step * 1_000_000_000))
+                noteSleep(since: began, expected: step)
             }
             if handleChoice() { return }
-            if !panelShown, Date().timeIntervalSince(start) >= verifyPanelAfter {
+            if !panelShown, elapsed() >= verifyPanelAfter {
                 panelShown = true
                 panel.show("„\(file.lastPathComponent)“ öffnet ungewöhnlich lange …", buttons: [.local, .cancel])
             }
-            if app == .word, !handedOverAgain, Date().timeIntervalSince(start) >= verifyRetryAfter {
+            if app == .word, !handedOverAgain, elapsed() >= verifyRetryAfter {
                 handedOverAgain = true
                 Log.info("„\(file.lastPathComponent)“ ist nach \(Int(verifyRetryAfter)) s nicht offen – Adresse wird erneut an Word übergeben")
+                let began = Date()
                 _ = await handOver(webURL, app: .word)
+                // `open` hat ein Zeitlimit von 10 s.
+                noteSleep(since: began, expected: 10)
             }
             // Kurzes Zeitlimit (etwas über dem `with timeout` im Skript), höchstens bis zur Frist.
-            let left = deadline.timeIntervalSinceNow
+            let left = remaining()
             guard left > 0.5 else { break }
-            let result = await AppleScriptRunner.run(documentNamesScript(app), timeout: min(6, left))
-            // Ohne Berechtigung oder Antwort lässt sich nichts prüfen: Fenster schließen (`defer`), kein Störungsbetrieb.
-            guard !result.permissionDenied, let output = result.output else { return }
-            let open = output.split(separator: "\n").map { String($0).precomposedStringWithCanonicalMapping }
+            // Ohne Berechtigung lässt sich nichts prüfen: Fenster schließen (`defer`), kein Störungsbetrieb.
+            guard let open = await isOpen(timeout: min(6, left)) else { return }
             // Ist das Dokument inzwischen offen, gilt das vor einem Klick während der Abfrage – sonst ginge es doppelt auf.
-            if open.contains(where: { doc in names.contains { doc.caseInsensitiveCompare($0) == .orderedSame } }) {
-                return
-            }
+            if open { return }
             if handleChoice() { return }
         }
         // Ein Klick genau zur Frist zählt noch.
         if handleChoice() { return }
+        let waited = Int(elapsed())
+        guard fallback else {
+            Log.info("„\(file.lastPathComponent)“ ist nach \(waited) s in \(app.displayName) noch nicht offen – Kontrolle beendet, "
+                + "kein lokales Öffnen (große Dateien laden online lange)")
+            return
+        }
+        // Letzte Abfrage vor dem Rückfall (z. B. nach dem Aufwachen fertig geladen) – sonst ginge es doppelt auf.
+        guard let openAtLast = await isOpen(timeout: 6), !openAtLast else { return }
+        if handleChoice() { return }
         panel.hide()
-        let waited = Int(Date().timeIntervalSince(start))
         Log.error("\(app.displayName) hat „\(file.lastPathComponent)“ nach \(waited) s nicht geöffnet. Lokaler Pfad: \(file.path) – erzeugte Adresse: \(webURL)")
         openLocally(file, app)
-        Outage.shared.trigger(reason: "\(app.displayName) öffnet nicht")
+        // Offline ist keine Störung bei Microsoft – sonst bliebe der Störungsbetrieb nach der Wiederverbindung 30 Min.
+        if Connectivity.shared.isOnline {
+            Outage.shared.trigger(reason: "\(app.displayName) öffnet nicht")
+        } else {
+            Log.info("Offline – kein Störungsbetrieb")
+        }
     }
 
     /// Office-Adresse wie bei „In Desktop-App öffnen“ in OneDrive im Web. Word für Mac ignoriert die
@@ -337,6 +398,8 @@ enum FileOpener {
     /// Liefert false, wenn im Wartefenster „Abbrechen“ gewählt wurde – dann nichts öffnen.
     private static func ensureRunning(_ app: OfficeApp) async -> Bool {
         if let running = runningInstance(app), running.isFinishedLaunching { return true }
+        // Eigenes Fenster je Aufruf, wie in `verifyOpened`: Ein „Abbrechen“ gilt nur für dieses Öffnen.
+        let waitingPanel = WaitingPanel()
         waitingPanel.show("\(app.displayName) wird gestartet …", buttons: [.cancel])
         defer { waitingPanel.hide() }
         // Ohne App weiter wie bisher: Die Übergabe scheitert dann und `launchCloud` öffnet lokal.

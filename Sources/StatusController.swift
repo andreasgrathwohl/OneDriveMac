@@ -77,6 +77,11 @@ final class StatusController: NSObject, NSMenuDelegate {
         if Settings.enabled && !Outage.shared.isActive {
             action(menu, "Vorübergehend lokal öffnen (1 Std.)", #selector(startOutage))
         }
+        // Verdeckt ein vorrangiger Zustand (z. B. SaveGuard-Warnung) den Störungsbetrieb, fehlt dessen Aktion
+        // oben – ohne diesen Punkt ließe er sich dann nicht beenden.
+        if Outage.shared.isActive && kind != .outage {
+            action(menu, "Wieder online versuchen", #selector(endOutage))
+        }
 
         menu.addItem(.separator())
         action(menu, "Einstellungen …", #selector(showSettings), key: ",")
@@ -190,6 +195,10 @@ final class StatusController: NSObject, NSMenuDelegate {
 
     @objc private func startOutage() {
         Outage.shared.startManual()
+    }
+
+    @objc private func endOutage() {
+        Outage.shared.end(reason: "vom Anwender")
     }
 
     @objc private func installUpdate() {

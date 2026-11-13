@@ -46,7 +46,8 @@ in einem langen Öffnen festhängt, soll in unseren Fenstern abbrechen oder loka
 ### 1. Störungsbetrieb (`Outage`)
 
 - **Auslöser** (jeder startet bzw. verlängert auf 30 Minuten ab jetzt):
-  - Ein online übergebenes Dokument ist nach 60 s nicht offen (Word, PowerPoint, Excel).
+  - Ein online übergebenes Word-Dokument ist nach 60 s nicht offen (nur online; PowerPoint/Excel ohne
+    automatischen Rückfall, s. Abschnitt 2).
   - Im Fenster „öffnet ungewöhnlich lange“ wird „Lokal öffnen“ gewählt.
   - Mindestens 2 Dokumente zeigen gleichzeitig seit mindestens 3 Minuten „Wird gespeichert…“ oder
     „Upload ausstehend“, während der Mac online und wach ist (Messung von `SaveMonitor`).
@@ -71,8 +72,17 @@ in einem langen Öffnen festhängt, soll in unseren Fenstern abbrechen oder loka
   **Abbrechen**.
 - **Lokal öffnen:** Kontrolle beenden, lokal öffnen, Störungsbetrieb auslösen.
 - **Abbrechen:** Kontrolle beenden, nichts öffnen. (Office kann das Dokument danach noch selbst öffnen.)
-- Ohne Klick: wie heute nach 60 s Fehler melden und lokal öffnen – jetzt auch für PowerPoint/Excel – und
-  Störungsbetrieb auslösen.
+- Ohne Klick, **Word:** wie heute nach 60 s Fehler melden und lokal öffnen und Störungsbetrieb auslösen.
+  Davor eine letzte Abfrage „ist offen?“; im Ruhezustand verstrichene Zeit verlängert die Frist; offline
+  wird kein Störungsbetrieb ausgelöst.
+- Ohne Klick, **PowerPoint/Excel:** kein automatischer Rückfall. Das Fenster bleibt, bis das Dokument offen
+  ist, geklickt wird oder 5 Minuten vergangen sind; danach schließt es sich mit einer Protokollzeile – kein
+  lokales Öffnen, kein Störungsbetrieb. Bei diesen Apps löst nur der Klick auf „Lokal öffnen“ den
+  Störungsbetrieb aus. Grund: Große Dateien (z. B. eine 110-MB-PowerPoint) laden online legitim länger als
+  60 s; ein stiller Rückfall öffnete sie doppelt (zwei Bearbeitungsstände) und schaltete den Störungsbetrieb
+  ohne Störung ein.
+- Antwortet Office auf die Abfrage nicht (Zeitüberschreitung, anderer Skriptfehler), zählt die Runde als
+  „noch nicht offen“ – Fenster, Klick und Frist bleiben. Nur bei verweigerter Automation endet die Kontrolle.
 - Erneute Übergabe nach 20 s bleibt auf Word beschränkt (nur Word verwirft die erste Adresse manchmal).
 - Geht das Dokument auf, schließt sich das Fenster von selbst.
 
@@ -89,6 +99,7 @@ in einem langen Öffnen festhängt, soll in unseren Fenstern abbrechen oder loka
 | 30 Min. automatisch, 60 Min. manuell, verlängert bei neuem Zeichen | Kurz genug, damit AutoSpeichern bald zurückkommt; manuell bewusst länger |
 | Saveschwelle: ≥ 2 Dokumente gleichzeitig ≥ 3 Min. | Eine einzelne große Datei (z. B. 110-MB-PowerPoint) speichert legitim lange |
 | Fenster nach 15 s, Fallback weiter nach 60 s | 15 s liegt über normalem Öffnen; 60 s ist die bestehende Grenze in `verifyOpened` |
+| Kein automatischer Rückfall bei PowerPoint/Excel; Fenster bis 5 Min. | Große Dateien laden online legitim > 60 s; ein stiller Rückfall öffnete sie doppelt und löste Störungsbetrieb ohne Störung aus |
 | Erneute Übergabe nur bei Word | Nur für Word belegt; bei PowerPoint/Excel könnte sie ein Dokument doppelt öffnen |
 | Zustand nicht über Neustart gespeichert | Neustart = sauberer Neuversuch, kein vergessener Dauer-Lokalbetrieb (Anwender-Wunsch: nicht wie Pausieren hängen bleiben) |
 | Eigenes Word-Fenster nicht anfassen | Vom Anwender so gewählt; unsere App kann dessen Knopf nicht reparieren |
