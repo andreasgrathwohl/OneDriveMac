@@ -1,6 +1,7 @@
 ## Neu in 1.9.1
 
 - **Keine Dauer-Meldung „Störung bei Microsoft“ mehr.** Standen zwei Dokumente lange auf „Upload ausstehend“ – etwa große Präsentationen, die OneDrive noch hochlädt –, meldete die App eine Störung und öffnete alles ohne AutoSpeichern. Auch **Wieder online versuchen** half nicht: Die Meldung kam sofort zurück. Jetzt zählen dafür nur noch Dokumente, die gerade eben noch normal gespeichert haben, und jedes Dokument höchstens einmal.
+- **Hinweise zum Speichern als Mitteilung statt als Fenster.** „… speichert noch“, „Alles gespeichert“ und „… wurde geschlossen, während noch gespeichert wurde“ kommen jetzt als macOS-Mitteilung: Sie verschwinden von selbst und stehen in der Mitteilungszentrale. Das Fenster oben rechts blieb bisher stehen, solange ein Dokument speicherte. macOS fragt einmal, ob OneDrive Opener Mitteilungen senden darf – bitte erlauben. Ohne Erlaubnis erscheint weiter das kleine Fenster, schließt sich aber nach 15 Sekunden selbst.
 
 ## Neu in 1.9.0
 

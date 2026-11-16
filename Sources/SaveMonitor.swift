@@ -12,8 +12,9 @@ import ApplicationServices
 /// - `save_probe`: je Office-App, -Version und Zustand einmal die gelesenen Titelleisten-Texte (prüft die Erkennung)
 /// - `save_monitor`: Freigabe erteilt, abgelehnt oder fehlt
 ///
-/// Dauert ein Vorgang länger als 45 s, zeigt ein kleines Fenster oben rechts, dass noch gespeichert wird
-/// (`SaveNotice`) – damit das Dokument nicht vorher geschlossen oder der Mac zugeklappt wird.
+/// Dauert ein Vorgang länger als 45 s, meldet eine macOS-Mitteilung, dass noch gespeichert wird
+/// (`SaveNotifier`; ohne Erlaubnis ein kleines Fenster) – damit das Dokument nicht vorher geschlossen oder
+/// der Mac zugeklappt wird.
 @MainActor
 final class SaveMonitor {
     static let shared = SaveMonitor()
@@ -68,7 +69,7 @@ final class SaveMonitor {
     /// Lokale Datei je Dokumentname, aus den Online-Adressen offener Cloud-Dokumente (`noteCloudDocument`).
     private var cloudFiles: [String: URL] = [:]
     private var lookedUp = Set<String>()
-    private let notice = SaveNotice()
+    private let notice = SaveNotifier()
     /// Hinweisfenster vom Anwender geschlossen – erst beim nächsten langen Vorgang wieder zeigen.
     private var noticeDismissed = false
     private var noticeShown = false
@@ -411,9 +412,8 @@ final class SaveMonitor {
             episodes[key] = nil
             finish(episode, at: since, outcome: "Fenster geschlossen, bevor „Gespeichert“ erschien")
             if duration(episode, until: since) >= 10, Settings.saveWarning {
-                notice.show("„\(episode.document)“ wurde geschlossen, während \(episode.app.displayName) noch gespeichert hat. "
-                    + "Öffne das Dokument erneut und prüfe, ob die letzte Änderung angekommen ist.",
-                    symbol: "exclamationmark.triangle.fill", color: .systemOrange, hideAfter: 30)
+                notice.post(.closedWhileSaving, "„\(episode.document)“ wurde geschlossen, während \(episode.app.displayName) "
+                    + "noch gespeichert hat. Öffne das Dokument erneut und prüfe, ob die letzte Änderung angekommen ist.")
                 noticeShown = false
             }
         }
@@ -445,7 +445,8 @@ final class SaveMonitor {
         Outage.shared.trigger(reason: "\(stuck.count) Dokumente speichern seit über 3 Min.")
     }
 
-    /// Hinweis, solange ein Dokument länger als 45 s speichert; danach kurz „Alles gespeichert“.
+    /// Ein Hinweis, sobald ein Dokument länger als 45 s speichert; ist alles fertig, „Alles gespeichert“.
+    /// Bewusst nur einmal je Wartephase (als Mitteilung, siehe `SaveNotifier`) – nicht laufend erneuert.
     private func updateNotice(_ now: Date) {
         let long = episodes.values.filter { duration($0, until: now) >= 45 }
             .sorted { $0.start < $1.start }
@@ -453,19 +454,18 @@ final class SaveMonitor {
             if noticeShown {
                 noticeShown = false
                 if !noticeDismissed {
-                    notice.show("Alles gespeichert.", symbol: "checkmark.circle.fill", color: .systemGreen, hideAfter: 3)
+                    notice.post(.saved, "Alles gespeichert.")
                 }
             }
             noticeDismissed = false
             return
         }
-        guard !noticeDismissed else { return }
+        guard !noticeDismissed, !noticeShown else { return }
         noticeShown = true
         let more = long.count > 1 ? " (und \(long.count - 1) weitere)" : ""
         let cause = first.cause.map { "\($0) – das Speichern dauert deshalb länger. " } ?? ""
-        notice.show("\(first.app.displayName) speichert „\(first.document)“\(more) seit \(Self.format(duration(first, until: now))). "
-            + cause + "Bitte das Dokument nicht schließen und den Mac nicht zuklappen.",
-            symbol: "icloud.and.arrow.up", color: .systemBlue, hideAfter: nil)
+        notice.post(.saving, "\(first.app.displayName) speichert „\(first.document)“\(more) noch. "
+            + cause + "Bitte das Dokument nicht schließen und den Mac nicht zuklappen.")
     }
 
     private func duration(_ episode: Episode, until end: Date) -> TimeInterval {
