@@ -38,6 +38,8 @@ final class SaveMonitor {
         /// Erkannte Ursache, z. B. „OneDrive lädt gerade ~800 MB hoch“ (`NetworkUsage.oneDriveCause`), alle 30 s neu gemessen.
         var cause: String?
         var causeCheckedAt: Date?
+        /// Hat schon einmal einen Störungsbetrieb ausgelöst – zählt dafür kein zweites Mal (`checkOutage`).
+        var countedForOutage = false
     }
 
     private struct OpenedFile {
@@ -53,6 +55,8 @@ final class SaveMonitor {
     private var lastTick = Date()
     private var sleepingSince: Date?
     private var episodes: [String: Episode] = [:]
+    /// Dokumente (Schlüssel wie in `episodes`), die in diesem Lauf schon einmal „Gespeichert“ zeigten.
+    private var seenSaved = Set<String>()
     private var opened: [String: OpenedFile] = [:]
     private var probed = Set<String>()
     private var officeVersions: [OfficeApp: String] = [:]
@@ -368,6 +372,7 @@ final class SaveMonitor {
                 }
                 episodes[key] = episode
             case .saved, .local:
+                if reading.state == .saved { seenSaved.insert(key) }
                 if let episode = episodes.removeValue(forKey: key) {
                     finish(episode, at: now, outcome: reading.state == .saved ? "gespeichert" : "lokal gespeichert")
                 }
@@ -420,14 +425,24 @@ final class SaveMonitor {
 
     /// Störungszeichen: mindestens zwei Dokumente speichern seit über 3 Min. (ohne Schlaf- und Offline-Zeit) – nur online,
     /// wach und solange der Störungsbetrieb nicht schon läuft. Eine einzelne große Datei reicht nicht.
+    ///
+    /// Ein Dokument zählt nur, wenn sein Hängen etwas über Microsoft aussagt:
+    /// - Es zeigte in diesem Lauf schon einmal „Gespeichert“ – das Hängen ist also neu. Dokumente, die seit Tagen
+    ///   „Upload ausstehend“ zeigen, haben ein eigenes Problem (dafür gibt es `SaveGuard`), keine Störung.
+    /// - Für das Warten ist keine Ursache bekannt (z. B. „OneDrive lädt gerade ~100 MB hoch“).
+    /// - Es hat noch keinen Störungsbetrieb ausgelöst. Sonst lösen dieselben zwei Dokumente ihn nach jedem Ablauf
+    ///   und nach jedem „Wieder online versuchen“ sofort wieder aus – der Betrieb endet dann nie (so in v1.9.0).
     private func checkOutage(_ now: Date) {
         guard Connectivity.shared.isOnline, sleepingSince == nil, !Outage.shared.isActive else { return }
         // Nur Online-Wartezeit zählt: Nach einer Fahrt ohne Netz hängen sonst alle ausstehenden Uploads
         // sofort „seit über 3 Min.“, obwohl Microsoft in Ordnung ist.
-        let durations = episodes.values.map { max(0, duration($0, until: now) - $0.offline) }
-        guard OutagePolicy.savesSignal(durations: durations) else { return }
-        let stuck = durations.filter { $0 >= 180 }.count
-        Outage.shared.trigger(reason: "\(stuck) Dokumente speichern seit über 3 Min.")
+        let stuck = episodes.filter { entry in
+            seenSaved.contains(entry.key) && !entry.value.countedForOutage && entry.value.cause == nil
+                && max(0, duration(entry.value, until: now) - entry.value.offline) >= OutagePolicy.saveStuckAfter
+        }
+        guard OutagePolicy.savesSignal(durations: stuck.values.map { max(0, duration($0, until: now) - $0.offline) }) else { return }
+        for key in stuck.keys { episodes[key]?.countedForOutage = true }
+        Outage.shared.trigger(reason: "\(stuck.count) Dokumente speichern seit über 3 Min.")
     }
 
     /// Hinweis, solange ein Dokument länger als 45 s speichert; danach kurz „Alles gespeichert“.

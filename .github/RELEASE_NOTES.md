@@ -1,3 +1,7 @@
+## Neu in 1.9.1
+
+- **Keine Dauer-Meldung „Störung bei Microsoft“ mehr.** Standen zwei Dokumente lange auf „Upload ausstehend“ – etwa große Präsentationen, die OneDrive noch hochlädt –, meldete die App eine Störung und öffnete alles ohne AutoSpeichern. Auch **Wieder online versuchen** half nicht: Die Meldung kam sofort zurück. Jetzt zählen dafür nur noch Dokumente, die gerade eben noch normal gespeichert haben, und jedes Dokument höchstens einmal.
+
 ## Neu in 1.9.0
 
 - **Störung bei Microsoft? Die App öffnet vorübergehend lokal.** Öffnet Word ein Dokument online nicht oder hängen mehrere Dokumente minutenlang bei „Wird gespeichert…“ bzw. „Upload ausstehend“, öffnet die App Dateien für 30 Minuten ohne AutoSpeichern – OneDrive lädt die Änderungen wie gewohnt hoch. Danach versucht sie es von selbst wieder online. Die Menüleiste zeigt „Störung bei Microsoft“ mit dem Knopf **Wieder online versuchen**. Pausieren ist dafür nicht mehr nötig.

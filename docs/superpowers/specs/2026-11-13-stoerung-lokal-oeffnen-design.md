@@ -51,6 +51,11 @@ in einem langen Öffnen festhängt, soll in unseren Fenstern abbrechen oder loka
   - Im Fenster „öffnet ungewöhnlich lange“ wird „Lokal öffnen“ gewählt.
   - Mindestens 2 Dokumente zeigen gleichzeitig seit mindestens 3 Minuten „Wird gespeichert…“ oder
     „Upload ausstehend“, während der Mac online und wach ist (Messung von `SaveMonitor`).
+    Ergänzt 2026-11-16 (v1.9.1): Ein Dokument zählt dafür nur, wenn es (a) in diesem Lauf der App schon
+    einmal „Gespeichert“ zeigte, (b) keine bekannte Ursache für das Warten hat (z. B. „OneDrive lädt
+    gerade ~100 MB hoch“) und (c) noch keinen Störungsbetrieb ausgelöst hat. Anlass: In v1.9.0 lösten
+    zwei seit Tagen auf „Upload ausstehend“ stehende Präsentationen den Störungsbetrieb nach jedem
+    Ablauf und nach jedem „Wieder online versuchen“ binnen einer Sekunde erneut aus – er endete nie.
 - **Manuell:** Menüpunkt „Vorübergehend lokal öffnen (1 Std.)“ – 60 Minuten.
 - **Wirkung:** `FileOpener` öffnet sofort lokal (mit Protokollzeile). Die Menüleiste zeigt den Zustand
   „Störung bei Microsoft – Dateien öffnen lokal“ (manuell: „Vorübergehend lokal“) mit Aktion „Wieder
