@@ -1,3 +1,7 @@
+## Neu in 1.9.2
+
+- **Ferndiagnose auf Anfrage.** Auf ausdrückliche Anfrage des Entwicklers (über die Fehlerberichte, wie der bestehende Diagnosebericht) kann die App gezielte Prüfungen zum Sync-Zustand von Dateien im OneDrive-Ordner ausführen und das Ergebnis zurückmelden – um Fälle einzugrenzen, in denen Änderungen nicht hochgeladen werden. Es werden nur fest eingebaute, lesende Prüfungen innerhalb des OneDrive-Ordners ausgeführt; es gibt keine Ausführung beliebiger Befehle. Das lässt sich wie die Fehlerberichte unter Einstellungen → Fehlerbehebung abschalten.
+
 ## Neu in 1.9.1
 
 - **Keine Dauer-Meldung „Störung bei Microsoft“ mehr.** Standen zwei Dokumente lange auf „Upload ausstehend“ – etwa große Präsentationen, die OneDrive noch hochlädt –, meldete die App eine Störung und öffnete alles ohne AutoSpeichern. Auch **Wieder online versuchen** half nicht: Die Meldung kam sofort zurück. Jetzt zählen dafür nur noch Dokumente, die gerade eben noch normal gespeichert haben, und jedes Dokument höchstens einmal.

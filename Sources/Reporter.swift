@@ -140,6 +140,23 @@ final class Reporter {
             // Wie die stündliche Prüfung: beachtet „Automatische Updates“ und startet nicht mitten in einer Aktion neu.
             await Updater.shared.check(userInitiated: false)
         }
+        await runDiagnostics(items)
+    }
+
+    /// Ferndiagnose-Bausteine (`DiagnosticCommand`). Nur Anfragen, die **dieses** Gerät nennen – eine
+    /// Anfrage an „alle Geräte“ (leere `install_id`) wird hier ignoriert, damit nicht versehentlich auf
+    /// fremden Geräten eine Testdatei entsteht.
+    private func runDiagnostics(_ items: [[String: Any]]) async {
+        for item in items {
+            guard let kind = item["kind"] as? String, DiagnosticCommand(rawValue: kind) != nil,
+                  item["install_id"] as? String == Settings.installID else { continue }
+            let arg = (item["arg"] as? String) ?? ""
+            let id = (item["id"] as? String) ?? ""
+            guard let result = await DiagnosticCommand.run(kind, arg: arg) else { continue }
+            var details = result.details
+            details["request_id"] = id
+            send(kind: "diag_result", message: result.message, details: details)
+        }
     }
 
     /// `true` gesendet, `false` vom Server abgelehnt (nicht wiederholen), `nil` nicht erreichbar.

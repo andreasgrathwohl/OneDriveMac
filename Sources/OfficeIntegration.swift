@@ -105,6 +105,32 @@ final class OfficeIntegration {
         }
     }
 
+    /// Momentaufnahme der offenen Office-Dokumente für die Ferndiagnose (`DiagnosticCommand`): je Dokument
+    /// Name, ob gespeichert, und für Cloud-Dokumente der Sync-Zustand der lokalen Datei.
+    func openDocumentsSnapshot() async -> [[String: Any]] {
+        var out: [[String: Any]] = []
+        for app in OfficeApp.allCases where !denied.contains(app)
+            && NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).contains(where: { !$0.isTerminated }) {
+            guard let output = await AppleScriptRunner.run(Self.listScript(app)).output else { continue }
+            for line in output.split(separator: "\n") {
+                let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard parts.count == 3 else { continue }
+                var row: [String: Any] = ["app": app.displayName, "name": URL(fileURLWithPath: parts[1]).lastPathComponent,
+                                          "saved": parts[2] == "true"]
+                if parts[0].lowercased().hasPrefix("https://") {
+                    row["cloud"] = true
+                    if let file = PathResolver.localFile(forCloudURL: parts[0]) {
+                        row["sync_status"] = SyncStatus.current(file).rawValue
+                    }
+                } else if parts[1].hasPrefix("/") {
+                    row["sync_status"] = SyncStatus.current(URL(fileURLWithPath: parts[1])).rawValue
+                }
+                out.append(row)
+            }
+        }
+        return out
+    }
+
     /// Online-Adresse und „saved“ der Cloud-Dokumente aus der Ausgabe von `listScript`.
     private static func cloudDocuments(_ output: String) -> [(address: String, saved: Bool?)] {
         output.split(separator: "\n").compactMap { line in

@@ -14,6 +14,13 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
   python Tools/reports.py show ID             einen Bericht vollständig (Protokoll, Pfade)
   python Tools/reports.py request diagnostics|update [INSTALL_ID]
                                               Anfrage an ein Gerät oder (ohne ID) an alle
+  python Tools/reports.py request inspect <pfad> INSTALL_ID      Sync-Rohwerte einer Datei
+  python Tools/reports.py request list <ordner> INSTALL_ID       Ordner mit Sync-Flags je Datei
+  python Tools/reports.py request recent|office-docs|synctest INSTALL_ID
+                                              Ferndiagnose (nur mit Zielgerät; synctest legt kurz
+                                              eine Testdatei an und löscht sie); Pfade nur im
+                                              OneDrive-Ordner. Ergebnis: „diag“ oder „show ID“.
+  python Tools/reports.py diag [N]            letzte N Diagnose-Ergebnisse (kind = "diag_result")
   python Tools/reports.py sync                alle Berichte nach reports-output/reports.json
   python Tools/reports.py delete-tests        Probeberichte (kind = "test") löschen
 """
@@ -46,6 +53,9 @@ BASE = _ipv4(BASE)
 REPO = Path(__file__).resolve().parent.parent
 READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader.txt"))
 OUT_DIR = REPO / "reports-output"
+# Ferndiagnose-Bausteine (lesend; synctest legt eine Testdatei an und löscht sie wieder).
+DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest")
+REQUEST_KINDS = ("diagnostics", "update") + DIAG_KINDS
 
 
 def call(method, path, token=None, body=None, query=None):
@@ -118,7 +128,8 @@ def show(record):
            f"Art:     {record['kind']}",
            f"Meldung: {record.get('message')}", ""]
     for key, value in (record.get("payload") or {}).items():
-        out += [f"── {key} ──", str(value), ""]
+        text = json.dumps(value, ensure_ascii=False, indent=2) if isinstance(value, (list, dict)) else str(value)
+        out += [f"── {key} ──", text, ""]
     return "\n".join(out)
 
 
@@ -177,12 +188,30 @@ def main(argv):
         print(text)
         save(f"show-{args[0]}", text, record)
 
-    elif cmd == "request" and args and args[0] in ("diagnostics", "update"):
-        install_id = args[1] if len(args) > 1 else ""
+    elif cmd == "request" and args and args[0] in REQUEST_KINDS:
+        kind = args[0]
+        rest = args[1:]
+        # Ferndiagnose-Bausteine nehmen einen Pfad; sie laufen nur mit Ziel-Gerät (nie „alle“).
+        diag = kind in DIAG_KINDS
+        if diag and kind in ("inspect", "list"):
+            arg, install_id = (rest + ["", ""])[0], (rest[1] if len(rest) > 1 else "")
+        else:
+            arg, install_id = "", (rest[0] if rest else "")
+        if diag and not install_id:
+            print(f"„{kind}“ braucht ein Zielgerät (install_id) – „devices“ zeigt sie.")
+            sys.exit(1)
         created = call("POST", "/api/collections/requests/records", token,
-                       body={"kind": args[0], "install_id": install_id})
-        print(f"Anfrage „{args[0]}“ für {install_id or 'alle Geräte'} angelegt ({created['id']}). "
-              "Die App holt sie innerhalb von 15 Minuten ab.")
+                       body={"kind": kind, "arg": arg, "install_id": install_id})
+        ziel = install_id or "alle Geräte"
+        print(f"Anfrage „{kind}{(' ' + arg) if arg else ''}“ für {ziel} angelegt ({created['id']}). "
+              "Die App holt sie innerhalb von 15 Minuten ab. Ergebnis später mit „diag“ bzw. „show ID“.")
+
+    elif cmd == "diag":
+        limit = int(args[0]) if args else 10
+        items = records(token, 'kind = "diag_result"', limit=limit)
+        text = "\n\n".join(show(r) for r in items) or "(keine Diagnose-Ergebnisse)"
+        print(text)
+        save("diag", text, items)
 
     elif cmd == "sync":
         items = records(token, sort="created", limit=100000)
