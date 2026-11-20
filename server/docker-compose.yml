@@ -96,6 +96,8 @@ configs:
           fields: [
             { type: "text", name: "install_id", max: 64 },
             { type: "text", name: "kind", required: true, max: 32 },
+            // Pfad für die Ferndiagnose (inspect/list). Bestehende Server: „Tools/reports.py migrate“.
+            { type: "text", name: "arg", max: 1000 },
             { type: "autodate", name: "created", onCreate: true, onUpdate: false },
           ],
         }))

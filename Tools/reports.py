@@ -52,6 +52,8 @@ def _ipv4(base):
 BASE = _ipv4(BASE)
 REPO = Path(__file__).resolve().parent.parent
 READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader.txt"))
+# Administrator (nur für „migrate“): Zeile 1 E-Mail, Zeile 2 Passwort – wie PB_SUPERUSER_* auf dem Server.
+ADMIN_FILE = Path(os.environ.get("ODO_ADMIN_FILE", REPO / ".secrets" / "pb-admin.txt"))
 OUT_DIR = REPO / "reports-output"
 # Ferndiagnose-Bausteine (lesend; synctest legt eine Testdatei an und löscht sie wieder).
 DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest")
@@ -75,15 +77,43 @@ def call(method, path, token=None, body=None, query=None):
         sys.exit(f"Server nicht erreichbar ({BASE}): {e.reason} – nur im Heimnetz möglich.")
 
 
-def login():
-    if not READER_FILE.exists():
-        sys.exit(f"Zugangsdaten fehlen: {READER_FILE} (Zeile 1 E-Mail, Zeile 2 Passwort)")
-    lines = [l.strip() for l in READER_FILE.read_text(encoding="utf-8-sig").splitlines() if l.strip()]
+def _credentials(path):
+    if not path.exists():
+        sys.exit(f"Zugangsdaten fehlen: {path} (Zeile 1 E-Mail, Zeile 2 Passwort)")
+    lines = [l.strip() for l in path.read_text(encoding="utf-8-sig").splitlines() if l.strip()]
     if len(lines) < 2:
-        sys.exit(f"{READER_FILE}: Zeile 1 E-Mail, Zeile 2 Passwort erwartet")
+        sys.exit(f"{path}: Zeile 1 E-Mail, Zeile 2 Passwort erwartet")
+    return lines[0], lines[1]
+
+
+def login():
+    email, password = _credentials(READER_FILE)
     result = call("POST", "/api/collections/readers/auth-with-password",
-                  body={"identity": lines[0], "password": lines[1]})
+                  body={"identity": email, "password": password})
     return result["token"]
+
+
+# Felder, die die laufende Datenbank haben muss. Die Erst-Migration in server/docker-compose.yml läuft nur
+# beim allerersten Start – spätere Felder kommen über „migrate“ dazu (idempotent).
+SCHEMA_ADDITIONS = {
+    "requests": [{"type": "text", "name": "arg", "max": 1000}],
+}
+
+
+def migrate():
+    email, password = _credentials(ADMIN_FILE)
+    token = call("POST", "/api/collections/_superusers/auth-with-password",
+                 body={"identity": email, "password": password})["token"]
+    for name, wanted in SCHEMA_ADDITIONS.items():
+        collection = call("GET", f"/api/collections/{name}", token)
+        have = {f["name"] for f in collection.get("fields", [])}
+        missing = [f for f in wanted if f["name"] not in have]
+        if not missing:
+            print(f"{name}: alle Felder vorhanden ({', '.join(f['name'] for f in wanted)})")
+            continue
+        call("PATCH", f"/api/collections/{collection['id']}", token,
+             body={"fields": collection["fields"] + missing})
+        print(f"{name}: Feld(er) ergänzt: {', '.join(f['name'] for f in missing)}")
 
 
 def records(token, filter_=None, sort="-created", limit=20):
@@ -138,6 +168,9 @@ def main(argv):
         print(__doc__)
         return
     cmd, args = argv[0], argv[1:]
+    if cmd == "migrate":
+        migrate()
+        return
     token = login()
 
     if cmd in ("list", "errors"):
@@ -212,6 +245,16 @@ def main(argv):
         text = "\n\n".join(show(r) for r in items) or "(keine Diagnose-Ergebnisse)"
         print(text)
         save("diag", text, items)
+        # Erledigte Anfragen löschen: Die Tabelle „requests“ ist für die App ohne Anmeldung lesbar,
+        # und „arg“ enthält Ordner- und Dateinamen – die sollen dort nicht stehen bleiben.
+        done = {(r.get("payload") or {}).get("request_id") for r in items} - {None, ""}
+        for request_id in done:
+            try:
+                call("DELETE", f"/api/collections/requests/records/{request_id}", token)
+            except SystemExit:
+                pass  # schon gelöscht
+        if done:
+            print(f"{len(done)} erledigte Anfrage(n) aus „requests“ gelöscht.")
 
     elif cmd == "sync":
         items = records(token, sort="created", limit=100000)

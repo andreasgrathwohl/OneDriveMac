@@ -105,6 +105,7 @@ enum DiagnosticCommand: String, CaseIterable {
     /// Legt eine inkompressible ~10-MB-Datei im OneDrive-Ordner an, liest 60 s lang jede Sekunde den
     /// Sync-Zustand und löscht sie wieder. Zeigt, was die App unmittelbar nach dem Anlegen sieht –
     /// und ob und wann daraus „synchronisiert“ wird.
+    @MainActor
     private static func synctest(folderArg: String) async -> (rows: [[String: Any]], note: String) {
         let folder = resolveInside(folderArg) ?? PathResolver.allRoots().first.map { URL(fileURLWithPath: $0.localPath) }
         guard let folder, (try? folder.checkResourceIsReachable()) == true else {
