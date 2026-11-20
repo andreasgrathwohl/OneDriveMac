@@ -74,6 +74,7 @@ enum DiagnosticCommand: String, CaseIterable {
 
     /// Rohwerte, die macOS zum Sync-Zustand liefert – mehr als `SyncStatus.current`, das sie zu einem
     /// Enum zusammenfasst. Genau diese Felder entscheiden, ob die Erkennung greift.
+    @MainActor
     private static func inspect(_ url: URL) -> [String: Any] {
         var out: [String: Any] = ["name": url.lastPathComponent]
         var u = url
