@@ -230,6 +230,11 @@ def main(argv):
             arg, install_id = (rest + ["", ""])[0], (rest[1] if len(rest) > 1 else "")
         else:
             arg, install_id = "", (rest[0] if rest else "")
+        # Git Bash schreibt /Users/… still in C:/Program Files/Git/Users/… um – ein Mac-Pfad beginnt mit „/“.
+        if arg and not arg.startswith(("/", "~")):
+            print(f"„{arg}“ ist kein Mac-Pfad (muss mit / beginnen). In Git Bash: MSYS_NO_PATHCONV=1 voranstellen "
+                  "oder PowerShell nutzen.")
+            sys.exit(1)
         if diag and not install_id:
             print(f"„{kind}“ braucht ein Zielgerät (install_id) – „devices“ zeigt sie.")
             sys.exit(1)
