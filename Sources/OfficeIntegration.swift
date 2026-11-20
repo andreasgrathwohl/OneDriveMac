@@ -99,6 +99,7 @@ final class OfficeIntegration {
         Task {
             for app in apps {
                 let result = await AppleScriptRunner.run(Self.listScript(app))
+                noteResult(app, result)
                 if let output = result.output { SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output)) }
             }
             surveying = false
@@ -152,59 +153,94 @@ final class OfficeIntegration {
         }
     }
 
-    /// AppleScript-Klasse der Dokumente in der jeweiligen App.
-    private static func collection(_ app: OfficeApp) -> String {
+    /// Letzter protokollierter Fehler der Dokumentabfrage je App – damit ein dauerhafter Fehler einmal im
+    /// Protokoll (und damit in den Berichten) steht statt still zu bleiben oder alle 3 s zu erscheinen.
+    private var lastListError: [OfficeApp: String] = [:]
+
+    private func noteResult(_ app: OfficeApp, _ result: AppleScriptRunner.Result) {
+        let error = result.output == nil && !result.permissionDenied ? (result.error ?? "keine Antwort") : nil
+        guard lastListError[app] != error else { return }
+        lastListError[app] = error
+        if let error {
+            Log.info("Office-Integration: Dokumente in \(app.displayName) nicht abfragbar: \(error)")
+        } else {
+            Log.info("Office-Integration: Dokumente in \(app.displayName) wieder abfragbar")
+        }
+    }
+
+    /// Einzahl der Klasse für „every …“ und Zugriff per Index („document 2“).
+    private static func element(_ app: OfficeApp) -> String {
         switch app {
-        case .word: return "documents"
-        case .excel: return "workbooks"
-        case .powerpoint: return "presentations"
+        case .word: return "document"
+        case .excel: return "workbook"
+        case .powerpoint: return "presentation"
         }
     }
 
     // „is running“ startet die App nicht – eine gerade beendete App würde sonst neu gestartet.
     // Umwandlung außerhalb von „tell“, damit Begriffe der App wie „tab“/„POSIX path“ nicht überdecken.
+    //
+    // Namen und „saved“ werden als ganze Liste geholt („full name of every document“), gezählt wird danach in
+    // AppleScript selbst. Das frühere „repeat with d in documents“ schickte „count“ an die Office-App – Word
+    // (16.115) beantwortet das mit Fehler −1708 („every document versteht count nicht“). Damit sah die
+    // Office-Integration in Word nie ein Dokument, und der Speicher-Wächter bekam keine (Ferndiagnose 2026-11-20).
     private static func listScript(_ app: OfficeApp) -> String {
         """
         if application id "\(app.bundleID)" is not running then return ""
-        set docInfos to {}
+        set docNames to {}
+        set docStates to {}
         with timeout of 5 seconds
           tell application id "\(app.bundleID)"
-            repeat with d in \(collection(app))
-              set end of docInfos to {full name of d, saved of d}
-            end repeat
+            set docNames to full name of every \(element(app))
+            try
+              set docStates to saved of every \(element(app))
+            end try
           end tell
         end timeout
         set resultText to ""
-        repeat with e in docInfos
-          set fn to item 1 of e
+        repeat with i from 1 to (count of docNames)
+          set fn to item i of docNames
           set p to fn
           if fn does not start with "http" and fn does not start with "/" then
             try
               set p to POSIX path of fn
             end try
           end if
-          set resultText to resultText & fn & tab & p & tab & ((item 2 of e) as text) & linefeed
+          set s to "?"
+          if (count of docStates) >= i then set s to ((item i of docStates) as text)
+          set resultText to resultText & fn & tab & p & tab & s & linefeed
         end repeat
         return resultText
         """
     }
 
     /// Prüft „saved“ unmittelbar vor dem Schließen erneut – seit der Abfrage könnte getippt worden sein.
+    /// Gesucht wird in der Namensliste; geschlossen wird das Dokument an dieser Stelle, nachdem sein Name
+    /// noch einmal verglichen wurde (die Reihenfolge könnte sich dazwischen geändert haben).
     private static func closeScript(_ app: OfficeApp, _ fullName: String) -> String {
-        """
+        let name = AppleScriptRunner.quoted(fullName)
+        return """
         if application id "\(app.bundleID)" is not running then return "missing"
+        set docNames to {}
         with timeout of 10 seconds
           tell application id "\(app.bundleID)"
-            repeat with d in \(collection(app))
-              if (full name of d) is \(AppleScriptRunner.quoted(fullName)) then
-                if not (saved of d) then return "modified"
-                close d saving no
-                return "closed"
-              end if
-            end repeat
+            set docNames to full name of every \(element(app))
           end tell
         end timeout
-        return "missing"
+        set idx to 0
+        repeat with i from 1 to (count of docNames)
+          if (item i of docNames) is \(name) then set idx to i
+        end repeat
+        if idx is 0 then return "missing"
+        with timeout of 10 seconds
+          tell application id "\(app.bundleID)"
+            set target to \(element(app)) idx
+            if (full name of target) is not \(name) then return "missing"
+            if not (saved of target) then return "modified"
+            close target saving no
+          end tell
+        end timeout
+        return "closed"
         """
     }
 
@@ -216,6 +252,7 @@ final class OfficeIntegration {
             updateStatus()
             return
         }
+        noteResult(app, result)
         guard let output = result.output else { return }
         updateStatus()
         SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output))

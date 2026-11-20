@@ -19,6 +19,9 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
   python Tools/reports.py request onedrive-state <pfad> INSTALL_ID
                                               Eintrag der Datei in der OneDrive-Datenbank (alle Spalten)
                                               plus Tabellenübersicht – zum Vergleich mit „inspect“
+  python Tools/reports.py request onedrive-table "<tabelle> [n]" INSTALL_ID
+                                              letzte n Zeilen (Standard 50, max. 200) einer Tabelle der
+                                              OneDrive-Datenbank, z. B. "od_ThrottleHistory 20"
   python Tools/reports.py request recent|office-docs|synctest INSTALL_ID
                                               Ferndiagnose (nur mit Zielgerät; synctest legt kurz
                                               eine Testdatei an und löscht sie); Pfade nur im
@@ -59,8 +62,9 @@ READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader
 ADMIN_FILE = Path(os.environ.get("ODO_ADMIN_FILE", REPO / ".secrets" / "pb-admin.txt"))
 OUT_DIR = REPO / "reports-output"
 # Ferndiagnose-Bausteine (lesend; synctest legt eine Testdatei an und löscht sie wieder).
-DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest", "onedrive-state")
+DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest", "onedrive-state", "onedrive-table")
 DIAG_WITH_PATH = ("inspect", "list", "onedrive-state")
+DIAG_WITH_ARG = DIAG_WITH_PATH + ("onedrive-table",)
 REQUEST_KINDS = ("diagnostics", "update") + DIAG_KINDS
 
 
@@ -230,12 +234,12 @@ def main(argv):
         rest = args[1:]
         # Ferndiagnose-Bausteine nehmen einen Pfad; sie laufen nur mit Ziel-Gerät (nie „alle“).
         diag = kind in DIAG_KINDS
-        if diag and kind in DIAG_WITH_PATH:
+        if diag and kind in DIAG_WITH_ARG:
             arg, install_id = (rest + ["", ""])[0], (rest[1] if len(rest) > 1 else "")
         else:
             arg, install_id = "", (rest[0] if rest else "")
         # Git Bash schreibt /Users/… still in C:/Program Files/Git/Users/… um – ein Mac-Pfad beginnt mit „/“.
-        if arg and not arg.startswith(("/", "~")):
+        if kind in DIAG_WITH_PATH and arg and not arg.startswith(("/", "~")):
             print(f"„{arg}“ ist kein Mac-Pfad (muss mit / beginnen). In Git Bash: MSYS_NO_PATHCONV=1 voranstellen "
                   "oder PowerShell nutzen.")
             sys.exit(1)

@@ -158,8 +158,8 @@ enum FileOpener {
         }
     }
 
-    /// Liefert die Namen der offenen Dokumente der App, je Zeile einer. Gleiche Zuordnung der
-    /// AppleScript-Klasse wie `OfficeIntegration.collection(_:)`.
+    /// Liefert die Namen der offenen Dokumente der App, je Zeile einer – als ganze Liste („name of documents“),
+    /// wie `OfficeIntegration.listScript`; ein Durchzählen in der Office-App scheitert in Word mit −1708.
     private static func documentNamesScript(_ app: OfficeApp) -> String {
         let collection: String
         switch app {

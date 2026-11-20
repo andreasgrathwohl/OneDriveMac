@@ -15,6 +15,9 @@ enum DiagnosticCommand: String, CaseIterable {
     /// Eintrag der Datei in der Datenbank des OneDrive-Clients – im Gegensatz zu den macOS-Werten
     /// (`inspect`), die schon „hochgeladen“ melden, sobald OneDrive die Datei übernommen hat.
     case onedriveState = "onedrive-state"
+    /// Letzte Zeilen einer Tabelle der OneDrive-Datenbank, `arg` = „<tabelle> [anzahl]“ (Standard 50, höchstens
+    /// 200). Für Fragen an die Datenbank, ohne für jede Tabelle einen eigenen Baustein zu bauen.
+    case onedriveTable = "onedrive-table"
 
     /// Führt den Baustein aus und liefert das Ergebnis als Bericht-Payload. `arg` ist der Pfad
     /// (nur für `inspect`/`list` nötig, bei `synctest` optional der Zielordner).
@@ -50,6 +53,15 @@ enum DiagnosticCommand: String, CaseIterable {
             details["onedrive"] = OneDriveDB.fileState(url)
             details["tables"] = OneDriveDB.tableOverview()
             message = "onedrive-state \(url.lastPathComponent)"
+        case .onedriveTable:
+            let parts = arg.split(separator: " ").map(String.init)
+            guard let table = parts.first else {
+                details["rejected"] = "Tabellenname fehlt"
+                return ("abgelehnt: Tabellenname fehlt", details)
+            }
+            let limit = parts.count > 1 ? Int(parts[1]) ?? 50 : 50
+            details["result"] = OneDriveDB.tableRows(table, limit: limit)
+            message = "onedrive-table \(table)"
         case .synctest:
             let result = await synctest(folderArg: arg)
             details["synctest"] = result.rows

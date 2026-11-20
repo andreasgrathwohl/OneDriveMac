@@ -236,6 +236,27 @@ enum OneDriveDB {
         } ?? ["error": "Datenbank nicht lesbar"]
     }
 
+    /// Die letzten `limit` Zeilen einer Tabelle (`onedrive-table`). Nur Tabellen, die es in der Datenbank gibt:
+    /// Der Name wird gegen `sqlite_master` geprüft, bevor er (in Anführungszeichen) in die Abfrage kommt.
+    static func tableRows(_ table: String, limit: Int) -> [String: Any] {
+        guard let db = databases().first else { return ["error": "keine SyncEngineDatabase.db gefunden"] }
+        let limit = min(max(limit, 1), 200)
+        return withDatabase(db) { handle -> [String: Any] in
+            let known = query(handle, "SELECT name FROM sqlite_master WHERE type = 'table'")
+            guard known.contains(table) else {
+                return ["error": "unbekannte Tabelle „\(table)“", "tables": known.sorted().joined(separator: ", ")]
+            }
+            let quoted = "\"" + table.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+            let total = query(handle, "SELECT count(*) FROM \(quoted)").first ?? "?"
+            // Neueste zuerst; Tabellen ohne rowid kennen diese Sortierung nicht – dann in Speicherreihenfolge.
+            var rows = rowDicts(handle, "SELECT * FROM \(quoted) ORDER BY rowid DESC LIMIT \(limit)", binds: [])
+            if rows.isEmpty, total != "0" {
+                rows = rowDicts(handle, "SELECT * FROM \(quoted) LIMIT \(limit)", binds: [])
+            }
+            return ["table": table, "total": total, "shown": rows.count, "rows": rows]
+        } ?? ["error": "Datenbank nicht lesbar"]
+    }
+
     /// Ergebniszeilen als Wörterbuch (Spaltenname → Wert); Blobs nur als Länge, NULL weggelassen.
     private static func rowDicts(_ db: OpaquePointer?, _ sql: String, binds: [String]) -> [[String: Any]] {
         var statement: OpaquePointer?

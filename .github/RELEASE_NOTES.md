@@ -1,3 +1,8 @@
+## Neu in 1.9.4
+
+- **Speicher-Wächter und Office-Integration sehen Word-Dokumente wieder.** Die Abfrage, welche Dokumente in Word offen sind, scheiterte mit einer aktuellen Word-Version an einer Eigenheit von Word. Der Speicher-Wächter („Office speichert nicht – Kopie speichern“) bekam deshalb keine Word-Dokumente zu sehen, und lokal geöffnete Word-Dateien wurden nicht automatisch mit AutoSpeichern neu geöffnet. Die Abfrage holt die Dokumente jetzt auf einem anderen Weg. Scheitert sie trotzdem, steht der Grund im Protokoll.
+- Ferndiagnose: zusätzlich lesender Zugriff auf einzelne Tabellen der OneDrive-Datenbank, etwa um zu sehen, wann Microsoft das Hochladen gebremst hat.
+
 ## Neu in 1.9.3
 
 - **Genauere Ferndiagnose beim Hochladen.** macOS meldet eine Datei in OneDrive schon nach etwa einer Sekunde als „hochgeladen“ – auch wenn sie noch gar nicht bei Microsoft angekommen sein kann. Die Ferndiagnose kann jetzt zusätzlich den Stand aus der Datenbank der OneDrive-App selbst lesen, um herauszufinden, woran sich der echte Upload erkennen lässt. Weiterhin nur lesend, nur im OneDrive-Ordner und nur auf ausdrückliche Anfrage.
