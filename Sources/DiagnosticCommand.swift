@@ -12,6 +12,9 @@ enum DiagnosticCommand: String, CaseIterable {
     case recent
     case officeDocs = "office-docs"
     case synctest
+    /// Eintrag der Datei in der Datenbank des OneDrive-Clients – im Gegensatz zu den macOS-Werten
+    /// (`inspect`), die schon „hochgeladen“ melden, sobald OneDrive die Datei übernommen hat.
+    case onedriveState = "onedrive-state"
 
     /// Führt den Baustein aus und liefert das Ergebnis als Bericht-Payload. `arg` ist der Pfad
     /// (nur für `inspect`/`list` nötig, bei `synctest` optional der Zielordner).
@@ -41,6 +44,12 @@ enum DiagnosticCommand: String, CaseIterable {
         case .officeDocs:
             details["office_docs"] = await OfficeIntegration.shared.openDocumentsSnapshot()
             message = "office-docs"
+        case .onedriveState:
+            guard let url = resolveInside(arg) else { return rejected(&details, arg) }
+            details["macos"] = inspect(url)
+            details["onedrive"] = OneDriveDB.fileState(url)
+            details["tables"] = OneDriveDB.tableOverview()
+            message = "onedrive-state \(url.lastPathComponent)"
         case .synctest:
             let result = await synctest(folderArg: arg)
             details["synctest"] = result.rows
@@ -121,8 +130,12 @@ enum DiagnosticCommand: String, CaseIterable {
         let start = Date()
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
-        for _ in 0..<60 {
-            rows.append(["t": formatter.string(from: Date()), "sync": inspect(file)])
+        for second in 0..<60 {
+            var row: [String: Any] = ["t": formatter.string(from: Date()), "sync": inspect(file)]
+            // Alle 5 s auch die OneDrive-Datenbank – der Vergleich zeigt, ob „hochgeladen“ von macOS stimmt.
+            // Seltener als die macOS-Werte, weil dafür jedes Mal die Datenbank kopiert wird.
+            if second % 5 == 0 { row["onedrive"] = OneDriveDB.fileState(file) }
+            rows.append(row)
             if Date().timeIntervalSince(start) >= 60 { break }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }

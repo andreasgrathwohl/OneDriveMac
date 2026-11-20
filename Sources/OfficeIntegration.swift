@@ -109,9 +109,20 @@ final class OfficeIntegration {
     /// Name, ob gespeichert, und für Cloud-Dokumente der Sync-Zustand der lokalen Datei.
     func openDocumentsSnapshot() async -> [[String: Any]] {
         var out: [[String: Any]] = []
-        for app in OfficeApp.allCases where !denied.contains(app)
-            && NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).contains(where: { !$0.isTerminated }) {
-            guard let output = await AppleScriptRunner.run(Self.listScript(app)).output else { continue }
+        // Leer darf nie zweideutig sein: Jede laufende App erscheint, notfalls mit dem Grund, warum nichts kam.
+        for app in OfficeApp.allCases
+            where NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).contains(where: { !$0.isTerminated }) {
+            let result = await AppleScriptRunner.run(Self.listScript(app))
+            guard let output = result.output else {
+                out.append(["app": app.displayName, "error": result.permissionDenied
+                    ? "keine Berechtigung (Systemeinstellungen → Datenschutz & Sicherheit → Automation)"
+                    : (result.error ?? "keine Antwort")])
+                continue
+            }
+            if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                out.append(["app": app.displayName, "documents": 0])
+                continue
+            }
             for line in output.split(separator: "\n") {
                 let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
                 guard parts.count == 3 else { continue }
@@ -128,7 +139,7 @@ final class OfficeIntegration {
                 out.append(row)
             }
         }
-        return out
+        return out.isEmpty ? [["info": "keine Office-App läuft"]] : out
     }
 
     /// Online-Adresse und „saved“ der Cloud-Dokumente aus der Ausgabe von `listScript`.

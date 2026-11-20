@@ -1,3 +1,7 @@
+## Neu in 1.9.3
+
+- **Genauere Ferndiagnose beim Hochladen.** macOS meldet eine Datei in OneDrive schon nach etwa einer Sekunde als „hochgeladen“ – auch wenn sie noch gar nicht bei Microsoft angekommen sein kann. Die Ferndiagnose kann jetzt zusätzlich den Stand aus der Datenbank der OneDrive-App selbst lesen, um herauszufinden, woran sich der echte Upload erkennen lässt. Weiterhin nur lesend, nur im OneDrive-Ordner und nur auf ausdrückliche Anfrage.
+
 ## Neu in 1.9.2
 
 - **Ferndiagnose auf Anfrage.** Auf ausdrückliche Anfrage des Entwicklers (über die Fehlerberichte, wie der bestehende Diagnosebericht) kann die App gezielte Prüfungen zum Sync-Zustand von Dateien im OneDrive-Ordner ausführen und das Ergebnis zurückmelden – um Fälle einzugrenzen, in denen Änderungen nicht hochgeladen werden. Es werden nur fest eingebaute, lesende Prüfungen innerhalb des OneDrive-Ordners ausgeführt; es gibt keine Ausführung beliebiger Befehle. Das lässt sich wie die Fehlerberichte unter Einstellungen → Fehlerbehebung abschalten.

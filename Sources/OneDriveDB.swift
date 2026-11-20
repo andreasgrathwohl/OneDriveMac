@@ -186,6 +186,87 @@ enum OneDriveDB {
         }.joined()
     }
 
+    // MARK: - Ferndiagnose (`DiagnosticCommand.onedriveState`)
+
+    /// Alle Spalten der Einträge zu `file` in `od_ClientFile_Records` – unverändert, weil noch unbekannt
+    /// ist, welche Spalte den echten Upload-Stand trägt. Gesucht nach Dateiname (NFC, NFD, kodiert) unter
+    /// einem Ordner gleichen Namens; ohne Treffer nach dem Dateinamen allein (höchstens 5).
+    static func fileState(_ file: URL) -> [String: Any] {
+        let name = file.lastPathComponent
+        let parent = file.deletingLastPathComponent().lastPathComponent
+        let names = [name.precomposedStringWithCanonicalMapping, name.decomposedStringWithCanonicalMapping,
+                     encodeEntities(name.precomposedStringWithCanonicalMapping)]
+        let parents = [parent.precomposedStringWithCanonicalMapping, parent.decomposedStringWithCanonicalMapping,
+                       encodeEntities(parent.precomposedStringWithCanonicalMapping)]
+        var out: [String: Any] = [:]
+        for (index, db) in databases().enumerated() {
+            let result = withDatabase(db) { handle -> [String: Any] in
+                var rows = rowDicts(handle, """
+                    SELECT f.* FROM od_ClientFile_Records f JOIN od_ClientFolder_Records p
+                      ON f.parentResourceID = p.resourceID
+                    WHERE f.fileName IN (?1, ?2, ?3) AND p.folderName IN (?4, ?5, ?6)
+                    """, binds: names + parents)
+                var how = "Name und Ordner"
+                if rows.isEmpty {
+                    rows = rowDicts(handle, "SELECT * FROM od_ClientFile_Records WHERE fileName IN (?1, ?2, ?3) LIMIT 5",
+                                    binds: names)
+                    how = rows.isEmpty ? "kein Eintrag" : "nur Name"
+                }
+                return ["match": how, "rows": rows]
+            }
+            out["db\(index + 1)"] = result ?? ["error": "Datenbank nicht lesbar"]
+        }
+        if out.isEmpty { out["error"] = "keine SyncEngineDatabase.db gefunden" }
+        return out
+    }
+
+    /// Tabellen der Datenbank mit Zeilenzahl und Spalten – um zu sehen, wo OneDrive Upload-Warteschlangen führt.
+    static func tableOverview() -> [String: Any] {
+        guard let db = databases().first else { return ["error": "keine SyncEngineDatabase.db gefunden"] }
+        return withDatabase(db) { handle -> [String: Any] in
+            var tables: [String: Any] = [:]
+            for table in query(handle, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name") {
+                let quoted = "\"" + table.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+                let count = query(handle, "SELECT count(*) FROM \(quoted)").first ?? "?"
+                let columns = rowDicts(handle, "PRAGMA table_info(\(quoted))", binds: [])
+                    .compactMap { $0["name"] as? String }
+                tables[table] = ["rows": count, "columns": columns.joined(separator: ", ")]
+            }
+            return tables
+        } ?? ["error": "Datenbank nicht lesbar"]
+    }
+
+    /// Ergebniszeilen als Wörterbuch (Spaltenname → Wert); Blobs nur als Länge, NULL weggelassen.
+    private static func rowDicts(_ db: OpaquePointer?, _ sql: String, binds: [String]) -> [[String: Any]] {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            Log.info("OneDrive-Datenbank: Abfrage fehlgeschlagen: \(String(cString: sqlite3_errmsg(db)))")
+            sqlite3_finalize(statement)
+            return []
+        }
+        defer { sqlite3_finalize(statement) }
+        for (index, value) in binds.enumerated() {
+            sqlite3_bind_text(statement, Int32(index + 1), value, -1, transient)
+        }
+        var rows: [[String: Any]] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            var row: [String: Any] = [:]
+            for column in 0..<sqlite3_column_count(statement) {
+                let name = sqlite3_column_name(statement, column).map { String(cString: $0) } ?? "spalte\(column)"
+                switch sqlite3_column_type(statement, column) {
+                case SQLITE_INTEGER: row[name] = sqlite3_column_int64(statement, column)
+                case SQLITE_FLOAT: row[name] = sqlite3_column_double(statement, column)
+                case SQLITE_TEXT:
+                    if let text = sqlite3_column_text(statement, column) { row[name] = String(cString: text) }
+                case SQLITE_BLOB: row[name] = "<blob \(sqlite3_column_bytes(statement, column)) Bytes>"
+                default: break
+                }
+            }
+            rows.append(row)
+        }
+        return rows
+    }
+
     private static func query(_ db: OpaquePointer?, _ sql: String, parent: String? = nil,
                               encodedParent: String? = nil, lengths: ClosedRange<Int>? = nil) -> [String] {
         var statement: OpaquePointer?

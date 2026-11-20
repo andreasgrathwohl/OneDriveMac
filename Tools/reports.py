@@ -16,6 +16,9 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
                                               Anfrage an ein Gerät oder (ohne ID) an alle
   python Tools/reports.py request inspect <pfad> INSTALL_ID      Sync-Rohwerte einer Datei
   python Tools/reports.py request list <ordner> INSTALL_ID       Ordner mit Sync-Flags je Datei
+  python Tools/reports.py request onedrive-state <pfad> INSTALL_ID
+                                              Eintrag der Datei in der OneDrive-Datenbank (alle Spalten)
+                                              plus Tabellenübersicht – zum Vergleich mit „inspect“
   python Tools/reports.py request recent|office-docs|synctest INSTALL_ID
                                               Ferndiagnose (nur mit Zielgerät; synctest legt kurz
                                               eine Testdatei an und löscht sie); Pfade nur im
@@ -56,7 +59,8 @@ READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader
 ADMIN_FILE = Path(os.environ.get("ODO_ADMIN_FILE", REPO / ".secrets" / "pb-admin.txt"))
 OUT_DIR = REPO / "reports-output"
 # Ferndiagnose-Bausteine (lesend; synctest legt eine Testdatei an und löscht sie wieder).
-DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest")
+DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest", "onedrive-state")
+DIAG_WITH_PATH = ("inspect", "list", "onedrive-state")
 REQUEST_KINDS = ("diagnostics", "update") + DIAG_KINDS
 
 
@@ -226,7 +230,7 @@ def main(argv):
         rest = args[1:]
         # Ferndiagnose-Bausteine nehmen einen Pfad; sie laufen nur mit Ziel-Gerät (nie „alle“).
         diag = kind in DIAG_KINDS
-        if diag and kind in ("inspect", "list"):
+        if diag and kind in DIAG_WITH_PATH:
             arg, install_id = (rest + ["", ""])[0], (rest[1] if len(rest) > 1 else "")
         else:
             arg, install_id = "", (rest[0] if rest else "")
