@@ -19,6 +19,9 @@ Ausgaben werden zusätzlich in reports-output/ gespeichert (nicht versioniert).
   python Tools/reports.py request onedrive-state <pfad> INSTALL_ID
                                               Eintrag der Datei in der OneDrive-Datenbank (alle Spalten)
                                               plus Tabellenübersicht – zum Vergleich mit „inspect“
+  python Tools/reports.py request pptx-analyse <pfad> INSTALL_ID
+                                              woraus eine Office-Datei besteht (Bilder, Videos, Schriften,
+                                              Pixelgröße der größten Bilder); nur heruntergeladene Dateien
   python Tools/reports.py request onedrive-table "<tabelle> [n]" INSTALL_ID
                                               letzte n Zeilen (Standard 50, max. 200) einer Tabelle der
                                               OneDrive-Datenbank, z. B. "od_ThrottleHistory 20"
@@ -62,8 +65,9 @@ READER_FILE = Path(os.environ.get("ODO_READER_FILE", REPO / ".secrets" / "reader
 ADMIN_FILE = Path(os.environ.get("ODO_ADMIN_FILE", REPO / ".secrets" / "pb-admin.txt"))
 OUT_DIR = REPO / "reports-output"
 # Ferndiagnose-Bausteine (lesend; synctest legt eine Testdatei an und löscht sie wieder).
-DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest", "onedrive-state", "onedrive-table")
-DIAG_WITH_PATH = ("inspect", "list", "onedrive-state")
+DIAG_KINDS = ("inspect", "list", "recent", "office-docs", "synctest", "onedrive-state", "onedrive-table",
+              "pptx-analyse")
+DIAG_WITH_PATH = ("inspect", "list", "onedrive-state", "pptx-analyse")
 DIAG_WITH_ARG = DIAG_WITH_PATH + ("onedrive-table",)
 REQUEST_KINDS = ("diagnostics", "update") + DIAG_KINDS
 

@@ -14,13 +14,15 @@ final class StatusController: NSObject, NSMenuDelegate {
 
     init(actions: Actions) {
         self.actions = actions
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        // Variable Breite: Während gespeichert wird, steht neben dem Symbol das Upload-Tempo (`UploadMeter`).
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
         item.menu = menu
         NotificationCenter.default.addObserver(self, selector: #selector(stateChanged), name: .appStateChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(stateChanged), name: .uploadMeterChanged, object: nil)
         updateIcon(UserStatus.kind)
     }
 
@@ -32,7 +34,10 @@ final class StatusController: NSObject, NSMenuDelegate {
         let image = NSImage(systemSymbolName: UserStatus.symbol(kind), accessibilityDescription: "OneDrive Opener")
         image?.isTemplate = true
         item.button?.image = image
-        item.button?.toolTip = "OneDrive Opener – \(UserStatus.title(kind))"
+        let upload = UploadMeter.shared.statusText()
+        item.button?.title = upload.map { " " + $0 } ?? ""
+        item.button?.imagePosition = upload == nil ? .imageOnly : .imageLeft
+        item.button?.toolTip = "OneDrive Opener – \(UserStatus.title(kind))" + (upload.map { " · Speichern: \($0)" } ?? "")
     }
 
     // MARK: - Menü
@@ -52,6 +57,20 @@ final class StatusController: NSObject, NSMenuDelegate {
         }
         if let update = Updater.shared.available {
             action(menu, "Update auf Version \(update.version) installieren", #selector(installUpdate))
+        }
+
+        let saves = SaveMonitor.shared.activeSaves.filter { $0.seconds >= 10 }
+        if !saves.isEmpty {
+            menu.addItem(.separator())
+            menu.addItem(sectionHeader("Speichern"))
+            for save in saves {
+                let entry = NSMenuItem(title: save.document, action: nil, keyEquivalent: "")
+                entry.attributedTitle = inline("„\(save.document)“", "\(save.app.displayName) · seit \(SaveMonitor.format(save.seconds))")
+                entry.isEnabled = false
+                menu.addItem(entry)
+            }
+            for line in UploadMeter.shared.menuLines() { info(menu, line) }
+            if UploadMeter.shared.menuLines().isEmpty { info(menu, "Messung läuft …") }
         }
 
         if !AppState.recent.isEmpty {

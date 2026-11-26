@@ -282,9 +282,18 @@ final class SaveMonitor {
 
     // MARK: - Messung
 
+    /// Dokumente, die gerade speichern, mit Dauer (ohne Schlafzeit) – für das Menü in der Menüleiste.
+    var activeSaves: [(app: OfficeApp, document: String, seconds: TimeInterval)] {
+        let now = Date()
+        return episodes.values.sorted { $0.start < $1.start }.map { ($0.app, $0.document, duration($0, until: now)) }
+    }
+
     private func willSleep() {
         sleepingSince = Date()
+        UploadMeter.shared.update(saving: [])
         let now = Date()
+        // Auch kurz speichernde Dokumente zählen: Was beim Zuklappen nicht oben ist, bleibt bis zum Aufwachen liegen.
+        unsyncedAtSleep = episodes.values.sorted { $0.start < $1.start }.map { ($0.app, $0.document) }
         for episode in episodes.values where duration(episode, until: now) >= 10 {
             Log.info("Speichern: Mac schläft ein, während „\(episode.document)“ (\(episode.app.displayName)) noch gespeichert wird")
         }
@@ -296,6 +305,25 @@ final class SaveMonitor {
         for key in Array(episodes.keys) { episodes[key]?.asleep += asleep }
         sleepingSince = nil
         lastTick = Date()
+        warnUnsyncedAfterSleep(asleep: asleep)
+    }
+
+    /// Dokumente, die beim Einschlafen noch speicherten (`willSleep`).
+    private var unsyncedAtSleep: [(app: OfficeApp, document: String)] = []
+
+    /// Nach dem Aufwachen: Was beim Zuklappen nicht fertig hochgeladen war, liegt noch nicht in OneDrive. Wird es
+    /// inzwischen auf dem iPad bearbeitet, entstehen zwei Stände, die sich nicht zusammenführen lassen – die Ursache
+    /// der Kopien „… 2.pptx“ und „…-MacBook Pro von <Name>.pptx“ (Berichte 31.10.–20.11.2026).
+    /// Kurze Pausen (unter 2 Min., etwa ein kurz zugeklappter Deckel) lösen keinen Hinweis aus.
+    private func warnUnsyncedAfterSleep(asleep: TimeInterval) {
+        let pending = unsyncedAtSleep
+        unsyncedAtSleep = []
+        guard Settings.saveWarning, asleep >= 120, let first = pending.first else { return }
+        let more = pending.count > 1 ? " und \(pending.count - 1) weitere" : ""
+        Log.info("Speichern: nach dem Aufwachen noch nicht hochgeladen: "
+            + pending.map { "„\($0.document)“ (\($0.app.displayName))" }.joined(separator: ", "))
+        notice.post(.unsyncedAtSleep, "„\(first.document)“\(more) war beim Zuklappen noch nicht hochgeladen. "
+            + "Warte, bis \(first.app.displayName) „Gespeichert“ zeigt, bevor du es auf dem iPad öffnest.")
     }
 
     private func tick() {
@@ -421,6 +449,8 @@ final class SaveMonitor {
         SaveGuard.shared.titleBars(guardReadings)
         updateNotice(now)
         checkOutage(now)
+        // Upload-Anzeige: erst ab 10 s Speichern messen – die meisten Speichervorgänge sind vorher fertig.
+        UploadMeter.shared.update(saving: Set(episodes.values.filter { duration($0, until: now) >= 10 }.map(\.app)))
     }
 
     /// Störungszeichen: mindestens zwei Dokumente speichern seit über 3 Min. (ohne Schlaf- und Offline-Zeit) – nur online,

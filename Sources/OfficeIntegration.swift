@@ -23,6 +23,14 @@ final class OfficeIntegration {
     private var localOnly: [String: Date] = [:]
     private var reopenedAt: [String: Date] = [:]
     private var pendingSince: [String: Date] = [:]
+    /// Wann ein lokal offenes Dokument zum ersten Mal gesehen wurde (Schlüssel: normalisierter Pfad).
+    /// Neu geöffnet wird nur kurz nach dem Öffnen (`reopenWindow`) – nie später, wenn schon gearbeitet wurde.
+    private var firstSeenLocal: [String: Date] = [:]
+    /// Apps, deren offene Dokumente seit dem Start der App schon einmal erfasst wurden. Was beim ersten Erfassen
+    /// schon offen ist (etwa nach einem Update), gilt als „vor dem Start geöffnet“ und wird nie neu geöffnet.
+    private var primed = Set<OfficeApp>()
+    /// Nur so lange nach dem ersten Sehen wird ein lokal offenes Dokument mit AutoSpeichern neu geöffnet.
+    static let reopenWindow: TimeInterval = 60
 
     private init() {}
 
@@ -74,9 +82,11 @@ final class OfficeIntegration {
         }
     }
 
+    /// Erfasst die offenen Dokumente der App im Vordergrund – immer, auch offline und bei ausgeschaltetem Neuöffnen:
+    /// Der Speicher-Wächter braucht die Liste, und `firstSeenLocal` muss wissen, wann ein Dokument geöffnet wurde.
+    /// Ob neu geöffnet wird, entscheidet `check` getrennt davon.
     private func tick() {
-        guard Settings.wordIntegration, Settings.enabled, !busy, Connectivity.shared.isOnline,
-              !Outage.shared.isActive,  // Störungsbetrieb: nicht automatisch mit AutoSave neu öffnen
+        guard Settings.enabled, !busy,
               let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
               let app = OfficeApp.allCases.first(where: { $0.bundleID == front }),
               !denied.contains(app) else { return }
@@ -89,7 +99,7 @@ final class OfficeIntegration {
 
     /// Offene Cloud-Dokumente aller laufenden Office-Apps an `SaveGuard` – auch, wenn die App nicht vorn ist.
     private func surveyAll() {
-        guard Settings.wordIntegration, !surveying else { return }
+        guard !surveying else { return }
         let apps = OfficeApp.allCases.filter { app in
             !denied.contains(app)
                 && NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).contains { !$0.isTerminated }
@@ -100,7 +110,10 @@ final class OfficeIntegration {
             for app in apps {
                 let result = await AppleScriptRunner.run(Self.listScript(app))
                 noteResult(app, result)
-                if let output = result.output { SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output)) }
+                if let output = result.output {
+                    SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output))
+                    observeLocal(app, output)
+                }
             }
             surveying = false
         }
@@ -244,6 +257,37 @@ final class OfficeIntegration {
         """
     }
 
+    /// Merkt sich, wann jedes lokal offene Dokument der App zum ersten Mal gesehen wurde, und vergisst
+    /// geschlossene. Beim ersten Erfassen nach dem Start zählt alles Offene als „vor dem Start geöffnet“.
+    private func observeLocal(_ app: OfficeApp, _ output: String) {
+        let now = Date()
+        var open = Set<String>()
+        for line in output.split(separator: "\n") {
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 3, !parts[0].lowercased().hasPrefix("https://"), parts[1].hasPrefix("/") else { continue }
+            let key = PathResolver.normalize(parts[1])
+            open.insert(key)
+            if firstSeenLocal[key] == nil { firstSeenLocal[key] = primed.contains(app) ? now : .distantPast }
+        }
+        let ofThisApp = { (path: String) in OfficeApp.forExtension(URL(fileURLWithPath: path).pathExtension) == app }
+        firstSeenLocal = firstSeenLocal.filter { !ofThisApp($0.key) || open.contains($0.key) }
+        primed.insert(app)
+    }
+
+    /// Variante A (Entscheidung 2026-11-26): ein lokal offenes Dokument nur dann mit AutoSpeichern neu öffnen,
+    /// wenn es gerade erst geöffnet wurde und seither nicht gespeichert wurde. Sonst könnte die Online-Fassung
+    /// älter sein als die lokale (die OneDrive-App lädt große Dateien minutenlang hoch, und macOS meldet
+    /// „hochgeladen“ zu früh) – Neuöffnen lädt dann den alten Stand, und es entsteht eine Konfliktkopie.
+    private func mayReopen(_ key: String, _ file: URL) -> Bool {
+        guard Settings.wordIntegration, Connectivity.shared.isOnline,
+              !Outage.shared.isActive,  // Störungsbetrieb: nicht automatisch mit AutoSave neu öffnen
+              let seen = firstSeenLocal[key], Date().timeIntervalSince(seen) <= Self.reopenWindow else { return false }
+        let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        // Seit dem Öffnen gespeichert: Die lokale Fassung ist neuer als die, die OneDrive sicher hochgeladen hat.
+        if let modified, modified >= seen.addingTimeInterval(-2) { return false }
+        return true
+    }
+
     private func check(_ app: OfficeApp) async {
         let result = await AppleScriptRunner.run(Self.listScript(app))
         if result.permissionDenied {
@@ -256,6 +300,7 @@ final class OfficeIntegration {
         guard let output = result.output else { return }
         updateStatus()
         SaveGuard.shared.officeDocuments(app, cloud: Self.cloudDocuments(output))
+        observeLocal(app, output)
 
         var openLocal = Set<String>()
         for line in output.split(separator: "\n") {
@@ -275,6 +320,7 @@ final class OfficeIntegration {
             guard OfficeApp.forExtension(file.pathExtension) == app,
                   localOnly[key] == nil,
                   parts[2] == "true",
+                  mayReopen(key, file),
                   let resolved = PathResolver.resolve(file, roots: PathResolver.allRoots()),
                   !resolved.root.isGuess || Settings.useGuessedMappings else { continue }
 

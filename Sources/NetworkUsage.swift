@@ -58,8 +58,13 @@ enum NetworkUsage {
         return result
     }
 
+    /// Gesendete Bytes aller Prozesse einer Office-App in einer Momentaufnahme (für `UploadMeter`).
+    static func sent(_ snapshot: Snapshot, app: OfficeApp) -> Int64 {
+        snapshot.bytes.reduce(0) { sum, entry in group(entry.key) == app.displayName ? sum + entry.value.sent : sum }
+    }
+
     /// Gruppen, die bei langsamem Speichern interessieren; alles andere wird nach Menge sortiert angehängt.
-    private static func group(_ name: String) -> String {
+    static func group(_ name: String) -> String {
         let n = name.lowercased()
         if n.contains("onedrive") { return "OneDrive" }
         if n.hasPrefix("microsoft w") { return "Word" }

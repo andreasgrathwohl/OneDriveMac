@@ -368,7 +368,7 @@ struct GeneralTab: View {
             } footer: {
                 Caption(model.wordStatus.hasPrefix("keine Berechtigung")
                     ? "Office lässt sich nicht steuern: " + model.wordStatus
-                    : "Auch für Dokumente aus „Zuletzt verwendet“, dem Dock oder nach „Speichern unter“ in den OneDrive-Ordner. Ungespeicherte Änderungen werden nie verworfen.")
+                    : "Auch für Dokumente aus „Zuletzt verwendet“, dem Dock oder nach „Speichern unter“ in den OneDrive-Ordner – nur direkt nach dem Öffnen, nie wenn schon gespeichert wurde. Ungespeicherte Änderungen werden nie verworfen. Der Speicher-Wächter arbeitet unabhängig von diesem Schalter.")
             }
 
             Section {

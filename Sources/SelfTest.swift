@@ -57,7 +57,44 @@ enum SelfTest {
         check("zweiHaengend", OutagePolicy.savesSignal(durations: [180, 200]) == true)
         check("zweiKurz", OutagePolicy.savesSignal(durations: [179, 600]) == false)
 
+        // Upload-Anzeige: Stillstand erst nach 120 s ohne nennenswertes Senden, und nicht direkt nach Messbeginn
+        do {
+            let r = UploadMeter.Reading(app: .powerpoint, sent: 0, rate: 0, since: t0, lastActivity: at(30))
+            check("uploadNichtSofortStill", !r.isStalled(at: at(60)))
+            check("uploadStillNach120s", r.isStalled(at: at(150)) && !r.isStalled(at: at(149)))
+        }
+        check("uploadTempoText", UploadMeter.rateText(2_400_000) == "2,4 MB/s" && UploadMeter.rateText(512_000) == "512 KB/s")
+        check("uploadMengeText", UploadMeter.sizeText(46_000_000) == "46,0 MB" && UploadMeter.sizeText(800) == "1 KB")
+
+        // pptx-analyse: Arten und das Lesen des Zip-Inhaltsverzeichnisses
+        check("artBild", OOXMLAnalysis.category("ppt/media/image3.JPEG") == "Bilder")
+        check("artVideo", OOXMLAnalysis.category("ppt/media/media1.mp4") == "Videos")
+        check("artSchrift", OOXMLAnalysis.category("ppt/fonts/font1.fntdata") == "Schriften")
+        check("artStruktur", OOXMLAnalysis.category("ppt/slides/slide1.xml") == "Struktur (XML)")
+        check("zipVerzeichnis", zipDirectoryReadable())
+
         print(failures == 0 ? "Selbsttest bestanden" : "Selbsttest: \(failures) Fehlschlag/Fehlschläge")
         return failures
+    }
+
+    /// Legt mit `/usr/bin/zip` ein kleines Archiv an (zwei Dateien, eine davon komprimierbar) und prüft, dass
+    /// `OOXMLAnalysis.centralDirectory` beide Einträge mit Namen und entpackter Größe findet.
+    private static func zipDirectoryReadable() -> Bool {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent("odo-selftest-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: dir) }
+        guard (try? fm.createDirectory(at: dir.appendingPathComponent("ppt/media"), withIntermediateDirectories: true)) != nil,
+              (try? Data(repeating: 65, count: 5000).write(to: dir.appendingPathComponent("ppt/slide.xml"))) != nil,
+              (try? Data((0..<3000).map { UInt8($0 % 251) }).write(to: dir.appendingPathComponent("ppt/media/image1.png"))) != nil
+        else { return false }
+        let zip = Process()
+        zip.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        zip.currentDirectoryURL = dir
+        zip.arguments = ["-q", "-r", "test.pptx", "ppt"]
+        guard (try? zip.run()) != nil else { return false }
+        zip.waitUntilExit()
+        guard let entries = OOXMLAnalysis.centralDirectory(dir.appendingPathComponent("test.pptx")) else { return false }
+        let files = Dictionary(entries.filter { !$0.name.hasSuffix("/") }.map { ($0.name, $0.size) }, uniquingKeysWith: { a, _ in a })
+        return files["ppt/slide.xml"] == 5000 && files["ppt/media/image1.png"] == 3000
     }
 }

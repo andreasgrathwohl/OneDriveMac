@@ -1,3 +1,10 @@
+## Neu in 1.9.5
+
+- **Sehen, ob wirklich hochgeladen wird.** Steht in Word, Excel oder PowerPoint länger „Wird gespeichert…“, zeigt die Menüleiste neben dem Symbol, wie schnell gerade hochgeladen wird (z. B. „↑ 2,4 MB/s“). Im Menü steht je Dokument, wie lange es schon speichert und wie viel bisher hochgeladen wurde. Kommt zwei Minuten lang nichts mehr an, steht dort „steht“ – dann hängt das Speichern vermutlich. Einen Prozentwert gibt es bewusst nicht: Office lädt nur die geänderten Teile hoch, wie viel das insgesamt ist, verrät es nicht.
+- **Hinweis nach dem Zuklappen.** War eine Präsentation beim Zuklappen noch nicht fertig hochgeladen, erinnert die App nach dem Aufwachen daran, erst „Gespeichert“ abzuwarten, bevor sie auf dem iPad geöffnet wird. Sonst entstehen zwei Stände – und daraus die Kopien „… 2.pptx“ und „…-MacBook Pro von …“.
+- **Vorsichtigeres automatisches Neuöffnen.** Lokal geöffnete Dokumente (z. B. über „Zuletzt verwendet“) werden nur noch direkt nach dem Öffnen mit AutoSpeichern neu geöffnet – nie mehr, wenn schon gespeichert wurde. So kann nie eine ältere Online-Fassung geladen werden. Der Speicher-Wächter arbeitet jetzt unabhängig von diesem Schalter.
+- Ferndiagnose: Auf Anfrage lässt sich ermitteln, woraus eine große Präsentation besteht (Bilder, Videos, Schriften), um sie gezielt zu verkleinern.
+
 ## Neu in 1.9.4
 
 - **Speicher-Wächter und Office-Integration sehen Word-Dokumente wieder.** Die Abfrage, welche Dokumente in Word offen sind, scheiterte mit einer aktuellen Word-Version an einer Eigenheit von Word. Der Speicher-Wächter („Office speichert nicht – Kopie speichern“) bekam deshalb keine Word-Dokumente zu sehen, und lokal geöffnete Word-Dateien wurden nicht automatisch mit AutoSpeichern neu geöffnet. Die Abfrage holt die Dokumente jetzt auf einem anderen Weg. Scheitert sie trotzdem, steht der Grund im Protokoll.

@@ -11,12 +11,14 @@ import UserNotifications
 final class SaveNotifier: NSObject, UNUserNotificationCenterDelegate {
     enum Kind {
         case saving, saved, closedWhileSaving
+        /// Nach dem Aufwachen: Dokumente, die beim Zuklappen noch nicht hochgeladen waren.
+        case unsyncedAtSleep
 
         var symbol: String {
             switch self {
             case .saving: return "icloud.and.arrow.up"
             case .saved: return "checkmark.circle.fill"
-            case .closedWhileSaving: return "exclamationmark.triangle.fill"
+            case .closedWhileSaving, .unsyncedAtSleep: return "exclamationmark.triangle.fill"
             }
         }
 
@@ -24,24 +26,27 @@ final class SaveNotifier: NSObject, UNUserNotificationCenterDelegate {
             switch self {
             case .saving: return .systemBlue
             case .saved: return .systemGreen
-            case .closedWhileSaving: return .systemOrange
+            case .closedWhileSaving, .unsyncedAtSleep: return .systemOrange
             }
         }
 
-        /// So lange bleibt das Ersatzfenster stehen.
+        /// So lange bleibt das Ersatzfenster stehen. Der Hinweis nach dem Aufwachen länger: Er soll gelesen
+        /// werden, bevor das iPad in die Hand genommen wird.
         var windowSeconds: TimeInterval {
             switch self {
             case .saving, .closedWhileSaving: return 15
+            case .unsyncedAtSleep: return 30
             case .saved: return 3
             }
         }
 
         /// „Speichert …“ und „Alles gespeichert“ teilen sich eine Kennung: Die zweite Mitteilung ersetzt
-        /// die erste. Die Warnung „geschlossen, während gespeichert wurde“ bleibt daneben stehen.
+        /// die erste. Die Warnungen bleiben daneben stehen.
         var identifier: String {
             switch self {
             case .saving, .saved: return "OneDriveOpener.save"
             case .closedWhileSaving: return "OneDriveOpener.closedWhileSaving"
+            case .unsyncedAtSleep: return "OneDriveOpener.unsyncedAtSleep"
             }
         }
     }

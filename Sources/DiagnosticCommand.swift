@@ -18,6 +18,8 @@ enum DiagnosticCommand: String, CaseIterable {
     /// Letzte Zeilen einer Tabelle der OneDrive-Datenbank, `arg` = „<tabelle> [anzahl]“ (Standard 50, höchstens
     /// 200). Für Fragen an die Datenbank, ohne für jede Tabelle einen eigenen Baustein zu bauen.
     case onedriveTable = "onedrive-table"
+    /// Woraus eine Office-Datei besteht (Bilder, Videos, Schriften …) – nur lesend, nur heruntergeladene Dateien.
+    case pptxAnalyse = "pptx-analyse"
 
     /// Führt den Baustein aus und liefert das Ergebnis als Bericht-Payload. `arg` ist der Pfad
     /// (nur für `inspect`/`list` nötig, bei `synctest` optional der Zielordner).
@@ -53,6 +55,13 @@ enum DiagnosticCommand: String, CaseIterable {
             details["onedrive"] = OneDriveDB.fileState(url)
             details["tables"] = OneDriveDB.tableOverview()
             message = "onedrive-state \(url.lastPathComponent)"
+        case .pptxAnalyse:
+            guard let url = resolveInside(arg) else { return rejected(&details, arg) }
+            // Läuft außerhalb des Hauptthreads: Bei großen Dateien und vielen Bildern dauert das Lesen einige Sekunden.
+            details["analyse"] = await withCheckedContinuation { continuation in
+                DispatchQueue.global(qos: .utility).async { continuation.resume(returning: OOXMLAnalysis.analyse(url)) }
+            }
+            message = "pptx-analyse \(url.lastPathComponent)"
         case .onedriveTable:
             let parts = arg.split(separator: " ").map(String.init)
             guard let table = parts.first else {
