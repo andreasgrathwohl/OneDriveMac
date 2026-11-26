@@ -8,7 +8,8 @@ import UniformTypeIdentifiers
 /// Der Finder zeigt für eine Datei das Dokumentsymbol der Standard-App. Ohne eigene Symbole erzeugt
 /// macOS eines aus dem App-Logo. Microsofts Symbole dürfen nicht mit der App verteilt werden – sie
 /// werden deshalb erst auf dem Mac aus der installierten Office-App kopiert (`Doc-<ext>.icns`, siehe
-/// Info.plist) und die App danach ad-hoc neu signiert.
+/// Info.plist) und die App danach neu signiert – mit dem lokalen Zertifikat (`LocalSigning`), damit die
+/// Freigaben von macOS erhalten bleiben; nur wenn das scheitert, ad-hoc.
 enum OfficeIcons {
     /// Programmstart und Office-Update können gleichzeitig auslösen – nie zweimal parallel signieren.
     private static let lock = NSLock()
@@ -22,8 +23,11 @@ enum OfficeIcons {
             Log.info("Office-Dokumentsymbole: App-Ordner nicht beschreibbar – übersprungen")
             return
         }
-        guard isAdHocSigned else {
-            Log.info("Office-Dokumentsymbole: App ist mit eigenem Zertifikat signiert – übersprungen")
+        // Nur unsere eigenen Signaturen (ad-hoc oder lokales Zertifikat) lassen sich auf dem Mac erneuern –
+        // eine fremde (z. B. Developer ID) nicht.
+        let signer = LocalSigning.signer(of: Bundle.main.bundlePath)
+        guard signer == .adHoc || signer == .local else {
+            Log.info("Office-Dokumentsymbole: App ist mit fremdem Zertifikat signiert – übersprungen")
             return
         }
 
@@ -119,32 +123,9 @@ enum OfficeIcons {
         return rep.cgImage
     }
 
-    /// Nur ad-hoc signierte Apps werden verändert – eine Developer-ID-Signatur ließe sich nicht erneuern.
-    private static var isAdHocSigned: Bool {
-        var code: SecStaticCode?
-        guard SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code) == errSecSuccess,
-              let code else { return false }
-        var info: CFDictionary?
-        guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: 1 << 1), &info) == errSecSuccess,
-              let dict = info as? [String: Any],
-              let flags = (dict[kSecCodeInfoFlags as String] as? NSNumber)?.uint32Value else { return false }
-        return flags & 0x2 != 0
-    }
-
     private static func resign() -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        process.arguments = ["--force", "--sign", "-",
-                             "--preserve-metadata=identifier,entitlements,requirements,flags,runtime",
-                             Bundle.main.bundlePath]
-        do {
-            try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus == 0 { return true }
-            Log.error("Neu signieren nach Übernahme der Office-Symbole fehlgeschlagen (Status \(process.terminationStatus))")
-        } catch {
-            Log.error("codesign konnte nicht gestartet werden: \(error.localizedDescription)")
-        }
+        if LocalSigning.sign(Bundle.main.bundlePath) { return true }
+        Log.error("Neu signieren nach Übernahme der Office-Symbole fehlgeschlagen")
         return false
     }
 }

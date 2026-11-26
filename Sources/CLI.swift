@@ -13,6 +13,9 @@ enum CLI {
         if args.contains("--selftest") {
             exit(SelfTest.run() == 0 ? 0 : 1)
         }
+        if args.contains("--signing-selftest") {
+            exit(LocalSigning.selfTest() == 0 ? 0 : 1)
+        }
         if args.contains("--diagnose") {
             print(OneDriveConfig.diagnosticReport())
             return true

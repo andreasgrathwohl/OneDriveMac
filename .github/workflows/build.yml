@@ -28,6 +28,9 @@ jobs:
           "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --diagnose
           "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --selftest
 
+      - name: Signatur-Selbsttest (lokales Zertifikat, eigener Schlüsselbund)
+        run: '"build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --signing-selftest'
+
       - name: Screenshots der Oberfläche
         continue-on-error: true
         run: |

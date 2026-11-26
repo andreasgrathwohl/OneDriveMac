@@ -1,3 +1,10 @@
+## Neu in 1.9.6
+
+- **Freigaben bleiben bei Updates erhalten.** Bisher musste die Freigabe „Bedienungshilfen“ nach jedem Update neu erteilt werden – bis dahin hat die App nicht gemessen. Jetzt legt die App auf dem Mac ein eigenes Signatur-Zertifikat an („OneDrive Opener (lokal)“, im Schlüsselbund) und signiert sich damit; macOS erkennt sie über Updates hinweg wieder. Die originalen Office-Dokumentsymbole im Finder bleiben erhalten.
+  **Einmalig nach diesem Update:** macOS fragt eventuell, ob „codesign“ den Schlüssel „OneDrive Opener (lokal)“ verwenden darf – bitte **Immer erlauben** wählen. Danach die Freigabe „Bedienungshilfen“ (und ggf. die Erlaubnis, Word, Excel und PowerPoint zu steuern) ein letztes Mal neu erteilen.
+- Die Abfrage der offenen Office-Dokumente schlägt nicht mehr fehl, wenn in Word oder Excel gerade kein Dokument offen ist.
+- Das Protokoll vermerkt jetzt immer, wann der Mac einschläft und aufwacht.
+
 ## Neu in 1.9.5
 
 - **Sehen, ob wirklich hochgeladen wird.** Steht in Word, Excel oder PowerPoint länger „Wird gespeichert…“, zeigt die Menüleiste neben dem Symbol, wie schnell gerade hochgeladen wird (z. B. „↑ 2,4 MB/s“). Im Menü steht je Dokument, wie lange es schon speichert und wie viel bisher hochgeladen wurde. Kommt zwei Minuten lang nichts mehr an, steht dort „steht“ – dann hängt das Speichern vermutlich. Einen Prozentwert gibt es bewusst nicht: Office lädt nur die geänderten Teile hoch, wie viel das insgesamt ist, verrät es nicht.

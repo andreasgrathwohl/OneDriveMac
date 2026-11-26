@@ -26,7 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Das Neu-Signieren beim Übernehmen der Office-Symbole setzt Berechtigungen zurück –
         // deshalb vor dem Anmelden als Startobjekt erledigen.
         Task {
-            await Task.detached(priority: .utility) { OfficeIcons.install() }.value
+            await Task.detached(priority: .utility) {
+                OfficeIcons.install()
+                // Noch ad-hoc signiert (frisch installiert bzw. Update aus einer Version vor 1.9.6)? Einmal lokal signieren.
+                LocalSigning.adoptIfNeeded()
+            }.value
             LoginItem.enableOnFirstLaunch()
             await setUpOnFirstLaunch()
         }
