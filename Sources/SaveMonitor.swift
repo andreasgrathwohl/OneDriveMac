@@ -290,6 +290,9 @@ final class SaveMonitor {
 
     private func willSleep() {
         sleepingSince = Date()
+        // Immer protokollieren: Nur so lässt sich „Mac zugeklappt“ von „Mac wach, aber ohne Netz“ unterscheiden
+        // (lange „Keine Netzwerkverbindung“-Phasen an Schultagen, Auswertung 2026-11-26).
+        Log.info("Ruhezustand: Mac schläft ein (\(Connectivity.shared.isOnline ? "online" : "offline"))")
         UploadMeter.shared.update(saving: [])
         let now = Date()
         // Auch kurz speichernde Dokumente zählen: Was beim Zuklappen nicht oben ist, bleibt bis zum Aufwachen liegen.
@@ -302,6 +305,7 @@ final class SaveMonitor {
     private func didWake() {
         guard let since = sleepingSince else { return }
         let asleep = Date().timeIntervalSince(since)
+        Log.info("Ruhezustand: Mac aufgewacht nach \(Self.format(asleep))")
         for key in Array(episodes.keys) { episodes[key]?.asleep += asleep }
         sleepingSince = nil
         lastTick = Date()

@@ -173,6 +173,8 @@ enum FileOpener {
         with timeout of 5 seconds
           tell application id "\(app.bundleID)" to set docNames to name of \(collection)
         end timeout
+        -- Ohne offenes Dokument liefern Word und Excel „missing value“ statt einer leeren Liste.
+        if docNames is missing value then return ""
         set AppleScript's text item delimiters to linefeed
         return docNames as text
         """

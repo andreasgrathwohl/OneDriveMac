@@ -210,6 +210,12 @@ final class OfficeIntegration {
             end try
           end tell
         end timeout
+        -- Ohne offenes Dokument liefern Word und Excel „missing value“ statt einer leeren Liste,
+        -- bei genau einem Dokument teils den Wert selbst (Fehler −1708 beim Zählen, 2026-11-26).
+        if docNames is missing value then set docNames to {}
+        if class of docNames is not list then set docNames to {docNames}
+        if docStates is missing value then set docStates to {}
+        if class of docStates is not list then set docStates to {docStates}
         set resultText to ""
         repeat with i from 1 to (count of docNames)
           set fn to item i of docNames
@@ -240,6 +246,8 @@ final class OfficeIntegration {
             set docNames to full name of every \(element(app))
           end tell
         end timeout
+        if docNames is missing value then return "missing"
+        if class of docNames is not list then set docNames to {docNames}
         set idx to 0
         repeat with i from 1 to (count of docNames)
           if (item i of docNames) is \(name) then set idx to i
