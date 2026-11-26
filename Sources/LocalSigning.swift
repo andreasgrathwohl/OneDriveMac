@@ -197,6 +197,16 @@ enum LocalSigning {
             let out = run("/usr/bin/codesign", ["-d", "-r-", copy]).output ?? ""
             return out.split(separator: "\n").first { $0.contains("designated =>") }.map(String.init) ?? ""
         }
+        // Diagnose: was macOS zur Identität sagt und was codesign mit ihr direkt meldet (ohne Rückfall auf ad-hoc).
+        print("--- find-identity -p codesigning:")
+        print(run("/usr/bin/security", ["find-identity", "-p", "codesigning", keychain]).output ?? "–")
+        if let identity {
+            let direct = run("/usr/bin/codesign", ["--force", "--sign", identity, "--keychain", keychain,
+                                                   "--preserve-metadata=identifier,entitlements,flags,runtime", copy],
+                             timeout: signTimeout)
+            print("--- codesign mit Identität: \(direct.ok ? "ok" : "fehlgeschlagen")")
+            print(direct.output ?? "–")
+        }
         check("ersteSignatur", sign(copy, keychain: keychain, keychainPassword: password) && signer(of: copy) == .local)
         let first = requirement()
         check("kennungAusZertifikat", first.contains("certificate leaf"), first)
