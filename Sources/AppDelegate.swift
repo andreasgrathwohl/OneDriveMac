@@ -28,8 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await Task.detached(priority: .utility) {
                 OfficeIcons.install()
-                // Noch ad-hoc signiert (frisch installiert bzw. Update aus einer Version vor 1.9.6)? Einmal lokal signieren.
-                LocalSigning.adoptIfNeeded()
+                // Feste Kennung in der Signatur noch nicht eingetragen? Einmal nachholen.
+                StableSigning.adoptIfNeeded()
             }.value
             LoginItem.enableOnFirstLaunch()
             await setUpOnFirstLaunch()

@@ -8,8 +8,8 @@ import UniformTypeIdentifiers
 /// Der Finder zeigt für eine Datei das Dokumentsymbol der Standard-App. Ohne eigene Symbole erzeugt
 /// macOS eines aus dem App-Logo. Microsofts Symbole dürfen nicht mit der App verteilt werden – sie
 /// werden deshalb erst auf dem Mac aus der installierten Office-App kopiert (`Doc-<ext>.icns`, siehe
-/// Info.plist) und die App danach neu signiert – mit dem lokalen Zertifikat (`LocalSigning`), damit die
-/// Freigaben von macOS erhalten bleiben; nur wenn das scheitert, ad-hoc.
+/// Info.plist) und die App danach ad-hoc neu signiert – mit fester Kennung (`StableSigning`), damit die
+/// Freigaben von macOS erhalten bleiben.
 enum OfficeIcons {
     /// Programmstart und Office-Update können gleichzeitig auslösen – nie zweimal parallel signieren.
     private static let lock = NSLock()
@@ -23,11 +23,9 @@ enum OfficeIcons {
             Log.info("Office-Dokumentsymbole: App-Ordner nicht beschreibbar – übersprungen")
             return
         }
-        // Nur unsere eigenen Signaturen (ad-hoc oder lokales Zertifikat) lassen sich auf dem Mac erneuern –
-        // eine fremde (z. B. Developer ID) nicht.
-        let signer = LocalSigning.signer(of: Bundle.main.bundlePath)
-        guard signer == .adHoc || signer == .local else {
-            Log.info("Office-Dokumentsymbole: App ist mit fremdem Zertifikat signiert – übersprungen")
+        // Nur eine Ad-hoc-Signatur lässt sich auf dem Mac erneuern – eine Developer-ID-Signatur nicht.
+        guard StableSigning.isAdHocSigned(Bundle.main.bundlePath) else {
+            Log.info("Office-Dokumentsymbole: App ist mit eigenem Zertifikat signiert – übersprungen")
             return
         }
 
@@ -124,7 +122,7 @@ enum OfficeIcons {
     }
 
     private static func resign() -> Bool {
-        if LocalSigning.sign(Bundle.main.bundlePath) { return true }
+        if StableSigning.sign(Bundle.main.bundlePath) { return true }
         Log.error("Neu signieren nach Übernahme der Office-Symbole fehlgeschlagen")
         return false
     }

@@ -53,7 +53,15 @@ fi
 rm -rf "$ICONSET_DIR"
 
 echo "→ Signiere ($SIGN_IDENTITY)"
-codesign --force --options runtime --timestamp=none --entitlements Resources/OneDriveOpener.entitlements --sign "$SIGN_IDENTITY" "$APP"
+REQ_ARGS=()
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+  # Feste Kennung statt cdhash: macOS bindet die Freigaben (Bedienungshilfen, Mitteilungen) an sie –
+  # mit cdhash sähe jede neue Version wie eine fremde App aus (siehe Sources/StableSigning.swift).
+  REQ_ARGS=(-r "=designated => identifier \"$BUNDLE_ID\"")
+fi
+codesign --force --options runtime --timestamp=none --entitlements Resources/OneDriveOpener.entitlements \
+  ${REQ_ARGS[@]+"${REQ_ARGS[@]}"} --sign "$SIGN_IDENTITY" "$APP"
+codesign -d -r- "$APP" 2>&1 | grep "designated" || true
 
 echo "✓ Fertig: $APP"
 

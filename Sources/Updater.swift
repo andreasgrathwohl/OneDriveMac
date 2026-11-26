@@ -142,12 +142,8 @@ final class Updater {
                 return
             }
 
-            // Lokale Signatur-Identität: Damit signiert das Austauschskript die neue Version, bevor sie startet –
-            // so bleiben die Freigaben von macOS über das Update erhalten. „-“ = keine (dann ad-hoc wie bisher).
-            let identity = await Task.detached(priority: .utility) { LocalSigning.ensureIdentity() }.value ?? "-"
             guard Self.spawnDetached(["/bin/sh", "-c", Self.swapScript, "sh",
-                                      String(ProcessInfo.processInfo.processIdentifier), newApp.path, target.path,
-                                      identity]) else {
+                                      String(ProcessInfo.processInfo.processIdentifier), newApp.path, target.path]) else {
                 status = "Update fehlgeschlagen"
                 Log.error("Update \(release.version): Hilfsprozess konnte nicht gestartet werden")
                 return
@@ -165,30 +161,17 @@ final class Updater {
         }
     }
 
-    /// $1 = PID der laufenden App, $2 = neue App, $3 = installierte App, $4 = lokale Signatur-Identität oder „-“.
-    ///
-    /// Die neue Version wird vor dem Start mit der lokalen Identität signiert (`LocalSigning`), auch ohne
-    /// übernommene Office-Symbole – sonst startet sie ad-hoc und die Freigaben fehlen. codesign wartet höchstens
-    /// 60 s (fragt macOS nach dem Schlüssel und niemand antwortet, darf das Update nicht hängen); dann ad-hoc.
+    /// $1 = PID der laufenden App, $2 = neue App, $3 = installierte App.
+    /// Beim Neu-Signieren bleiben die Metadaten erhalten, auch „requirements“ – also die feste Kennung aus
+    /// `build.sh` (`StableSigning`), an die macOS die Freigaben bindet.
     private static let swapScript = """
     while kill -0 "$1" 2>/dev/null; do sleep 0.3; done
-    sign() {
-      /usr/bin/codesign --force --sign "$1" --preserve-metadata=identifier,entitlements,flags,runtime "$2" &
-      p=$!
-      ( sleep 60; kill "$p" 2>/dev/null ) &
-      w=$!
-      wait "$p"; s=$?
-      kill "$w" 2>/dev/null
-      return $s
-    }
     found=0
     for f in "$3"/Contents/Resources/Doc-*.icns; do
       [ -f "$f" ] && cp "$f" "$2/Contents/Resources/" && found=1
     done
-    if [ "$found" = 1 ] || [ "$4" != "-" ]; then
-      if ! sign "$4" "$2" && ! sign - "$2"; then
-        rm -f "$2"/Contents/Resources/Doc-*.icns
-      fi
+    if [ "$found" = 1 ] && ! /usr/bin/codesign --force --sign - --preserve-metadata=identifier,entitlements,requirements,flags,runtime "$2"; then
+      rm -f "$2"/Contents/Resources/Doc-*.icns
     fi
     rm -rf "$3.old"
     if mv "$3" "$3.old"; then

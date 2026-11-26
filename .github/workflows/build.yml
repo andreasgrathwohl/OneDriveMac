@@ -28,7 +28,7 @@ jobs:
           "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --diagnose
           "build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --selftest
 
-      - name: Signatur-Selbsttest (lokales Zertifikat, eigener Schlüsselbund)
+      - name: Signatur-Selbsttest (feste Kennung bleibt beim Neu-Signieren erhalten)
         run: '"build/OneDrive Opener.app/Contents/MacOS/OneDriveOpener" --signing-selftest'
 
       - name: Screenshots der Oberfläche

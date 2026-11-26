@@ -1,7 +1,7 @@
 ## Neu in 1.9.6
 
-- **Freigaben bleiben bei Updates erhalten.** Bisher musste die Freigabe „Bedienungshilfen“ nach jedem Update neu erteilt werden – bis dahin hat die App nicht gemessen. Jetzt legt die App auf dem Mac ein eigenes Signatur-Zertifikat an („OneDrive Opener (lokal)“, im Schlüsselbund) und signiert sich damit; macOS erkennt sie über Updates hinweg wieder. Die originalen Office-Dokumentsymbole im Finder bleiben erhalten.
-  **Einmalig nach diesem Update:** macOS fragt eventuell, ob „codesign“ den Schlüssel „OneDrive Opener (lokal)“ verwenden darf – bitte **Immer erlauben** wählen. Danach die Freigabe „Bedienungshilfen“ (und ggf. die Erlaubnis, Word, Excel und PowerPoint zu steuern) ein letztes Mal neu erteilen.
+- **Freigaben sollen Updates überstehen.** Bisher musste die Freigabe „Bedienungshilfen“ nach jedem Update neu erteilt werden – bis dahin hat die App nicht gemessen. Die Signatur der App trägt jetzt eine feste Kennung, an der macOS sie über Updates hinweg wiedererkennen soll. Die originalen Office-Dokumentsymbole im Finder bleiben erhalten.
+  **Nach diesem Update** die Freigabe „Bedienungshilfen“ (und ggf. die Erlaubnis, Word, Excel und PowerPoint zu steuern) noch einmal erteilen. Ob es das letzte Mal war, zeigt das nächste Update.
 - Die Abfrage der offenen Office-Dokumente schlägt nicht mehr fehl, wenn in Word oder Excel gerade kein Dokument offen ist.
 - Das Protokoll vermerkt jetzt immer, wann der Mac einschläft und aufwacht.
 
